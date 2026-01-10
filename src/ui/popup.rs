@@ -614,6 +614,7 @@ fn history_list(
                     item = item.hover(|style| style.bg(rgba(0x31313150)));
                 }
                 let query = view.search_query.clone();
+                let preview_text = history_preview_text(entry);
                 if entry.content_type == "image" {
                     if let Some(path) = entry.image_path.as_ref() {
                         let thumbnail = div()
@@ -638,11 +639,11 @@ fn history_list(
                         );
                     } else {
                         item = item.p_2().h(px(36.)).text_ellipsis();
-                        items.push(item.child(HighlightedText::new(entry.content.clone(), query)));
+                        items.push(item.child(HighlightedText::new(preview_text, query)));
                     }
                 } else {
                     item = item.p_2().h(px(36.)).text_ellipsis();
-                    items.push(item.child(HighlightedText::new(entry.content.clone(), query)));
+                    items.push(item.child(HighlightedText::new(preview_text, query)));
                 }
             }
             items
@@ -652,6 +653,24 @@ fn history_list(
     .w_full()
     .track_scroll(scroll_handle)
     .into_any_element()
+}
+
+fn history_preview_text(entry: &Model) -> String {
+    let text = entry
+        .text_content
+        .as_deref()
+        .or(entry.file_paths.as_deref())
+        .unwrap_or(entry.content.as_str());
+    let preview_lines: Vec<&str> = text
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect();
+    if preview_lines.is_empty() {
+        text.trim().to_string()
+    } else {
+        preview_lines.join(" ")
+    }
 }
 
 fn detail_body_list(
