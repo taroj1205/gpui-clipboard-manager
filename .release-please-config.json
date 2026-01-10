@@ -1,5 +1,6 @@
 {
   "release-type": "rust",
+  "draft": true,
   "packages": {
     ".": {
       "package-name": "gpui-clipboard-manager",
