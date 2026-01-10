@@ -5,12 +5,16 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.100"
+async-std = "1.13.0"
 clipboard-win = "5.4.1"
 global-hotkey = "0.7.0"
 gpui = "0.2.2"
 sha2 = "0.10.8"
+scraper = "0.20.0"
 serde_json = "1.0.139"
+surf = "2.3.2"
 unicode-segmentation = "1.12.0"
+url = "2.5.4"
 windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
 sea-orm = { version = "1.1.19", features = ["runtime-async-std-native-tls", "sqlx-sqlite"] }
 sea-orm-migration = { version = "1.1.19", features = ["runtime-async-std-native-tls", "sqlx-sqlite"] }

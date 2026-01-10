@@ -17,6 +17,8 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 
 #[cfg(target_os = "windows")]
+use crate::clipboard::link_metadata::{LinkMetadata, fetch_link_metadata, parse_link_url};
+#[cfg(target_os = "windows")]
 use crate::clipboard::ocr::extract_text_from_image;
 #[cfg(target_os = "windows")]
 use crate::storage::history::{insert_clipboard_entry, load_last_hash, open_db};
@@ -71,6 +73,10 @@ fn start_windows_clipboard_history(cx: &mut App, update_tx: Sender<()>) -> anyho
                             entry.ocr_text.as_deref(),
                             entry.image_path.as_deref(),
                             entry.file_paths.as_deref(),
+                            entry.link_url.as_deref(),
+                            entry.link_title.as_deref(),
+                            entry.link_description.as_deref(),
+                            entry.link_site_name.as_deref(),
                             entry.source_app_title.as_deref(),
                             entry.source_exe_path.as_deref(),
                         )
@@ -108,6 +114,10 @@ struct ClipboardEntry {
     ocr_text: Option<String>,
     image_path: Option<String>,
     file_paths: Option<String>,
+    link_url: Option<String>,
+    link_title: Option<String>,
+    link_description: Option<String>,
+    link_site_name: Option<String>,
     source_app_title: Option<String>,
     source_exe_path: Option<String>,
 }
@@ -134,6 +144,7 @@ async fn read_clipboard_entry() -> anyhow::Result<Option<ClipboardEntry>> {
                 None,
                 None,
                 Some(file_paths),
+                None,
             )));
         }
     }
@@ -161,6 +172,7 @@ async fn read_clipboard_entry() -> anyhow::Result<Option<ClipboardEntry>> {
                 ocr_text,
                 Some(image_path.to_string_lossy().to_string()),
                 None,
+                None,
             )));
         }
     }
@@ -173,11 +185,39 @@ async fn read_clipboard_entry() -> anyhow::Result<Option<ClipboardEntry>> {
         let trimmed = text.trim();
         if !trimmed.is_empty() {
             let content_hash = hash_bytes(trimmed.as_bytes());
+            if let Some(url) = parse_link_url(trimmed) {
+                let mut link_metadata = match fetch_link_metadata(&url).await {
+                    Ok(metadata) => metadata,
+                    Err(err) => {
+                        eprintln!("Failed to fetch link metadata: {err}");
+                        None
+                    }
+                };
+                if link_metadata.is_none() {
+                    link_metadata = Some(LinkMetadata {
+                        url: url.to_string(),
+                        title: None,
+                        description: None,
+                        site_name: None,
+                    });
+                }
+                return Ok(Some(build_entry(
+                    "link",
+                    content_hash,
+                    trimmed.to_string(),
+                    Some(trimmed.to_string()),
+                    None,
+                    None,
+                    None,
+                    link_metadata,
+                )));
+            }
             return Ok(Some(build_entry(
                 "text",
                 content_hash,
                 trimmed.to_string(),
                 Some(trimmed.to_string()),
+                None,
                 None,
                 None,
                 None,
@@ -197,8 +237,18 @@ fn build_entry(
     ocr_text: Option<String>,
     image_path: Option<String>,
     file_paths: Option<String>,
+    link_metadata: Option<LinkMetadata>,
 ) -> ClipboardEntry {
     let (source_app_title, source_exe_path) = active_window_source();
+    let (link_url, link_title, link_description, link_site_name) = match link_metadata {
+        Some(metadata) => (
+            Some(metadata.url),
+            metadata.title,
+            metadata.description,
+            metadata.site_name,
+        ),
+        None => (None, None, None, None),
+    };
     ClipboardEntry {
         content_type: content_type.to_string(),
         content_hash,
@@ -207,6 +257,10 @@ fn build_entry(
         ocr_text,
         image_path,
         file_paths,
+        link_url,
+        link_title,
+        link_description,
+        link_site_name,
         source_app_title,
         source_exe_path,
     }

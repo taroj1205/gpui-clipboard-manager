@@ -187,11 +187,7 @@ impl PopupView {
             return;
         }
         let len = self.entries.len();
-        let next = if delta.is_negative() {
-            self.selected_index.saturating_sub(delta.unsigned_abs())
-        } else {
-            (self.selected_index + delta as usize).min(len.saturating_sub(1))
-        };
+        let next = (self.selected_index as isize + delta).rem_euclid(len as isize) as usize;
         if next != self.selected_index {
             self.selected_index = next;
             self.list_scroll
@@ -690,6 +686,24 @@ fn history_list(
 }
 
 fn history_preview_text(entry: &Model) -> String {
+    if entry.content_type == "link" {
+        if let Some(title) = entry.link_title.as_deref() {
+            if !title.trim().is_empty() {
+                return title.to_string();
+            }
+        }
+        if let Some(description) = entry.link_description.as_deref() {
+            if !description.trim().is_empty() {
+                return description.to_string();
+            }
+        }
+        let url = entry.link_url.as_deref().or(entry.text_content.as_deref());
+        if let Some(url) = url {
+            if !url.trim().is_empty() {
+                return url.to_string();
+            }
+        }
+    }
     let text = entry
         .text_content
         .as_deref()
@@ -783,7 +797,7 @@ fn detail_info_panel(entries: &[Model], selected_index: usize) -> AnyElement {
     let content_type = format_content_type(&entry.content_type);
     let (characters, words) = entry_metrics(entry);
 
-    div()
+    let mut panel = div()
         .px_1()
         .flex()
         .flex_col()
@@ -792,7 +806,34 @@ fn detail_info_panel(entries: &[Model], selected_index: usize) -> AnyElement {
         .child(div().text_color(rgb(0xf1f5f9)).child("Information"))
         .child(info_row("Source", source))
         .child(div().w_full().h(px(1.)).bg(rgba(0xffffff12)))
-        .child(info_row("Type", content_type))
+        .child(info_row("Type", content_type));
+
+    if entry.content_type == "link" {
+        if let Some(title) = entry.link_title.as_deref() {
+            if !title.trim().is_empty() {
+                panel = panel
+                    .child(div().w_full().h(px(1.)).bg(rgba(0xffffff12)))
+                    .child(info_row("Title", title.to_string()));
+            }
+        }
+        if let Some(site_name) = entry.link_site_name.as_deref() {
+            if !site_name.trim().is_empty() {
+                panel = panel
+                    .child(div().w_full().h(px(1.)).bg(rgba(0xffffff12)))
+                    .child(info_row("Site", site_name.to_string()));
+            }
+        }
+        let url = entry.link_url.as_deref().or(entry.text_content.as_deref());
+        if let Some(url) = url {
+            if !url.trim().is_empty() {
+                panel = panel
+                    .child(div().w_full().h(px(1.)).bg(rgba(0xffffff12)))
+                    .child(info_row("URL", url.to_string()));
+            }
+        }
+    }
+
+    panel
         .child(div().w_full().h(px(1.)).bg(rgba(0xffffff12)))
         .child(info_row("Characters", characters.to_string()))
         .child(div().w_full().h(px(1.)).bg(rgba(0xffffff12)))
@@ -802,6 +843,30 @@ fn detail_info_panel(entries: &[Model], selected_index: usize) -> AnyElement {
 
 fn detail_body(entries: &[Model], selected_index: usize) -> String {
     if let Some(entry) = entries.get(selected_index) {
+        if entry.content_type == "link" {
+            let mut lines = Vec::new();
+            if let Some(title) = entry.link_title.as_deref() {
+                if !title.trim().is_empty() {
+                    lines.push(title.to_string());
+                }
+            }
+            let url = entry
+                .link_url
+                .as_deref()
+                .or(entry.text_content.as_deref())
+                .unwrap_or(entry.content.as_str());
+            if !url.trim().is_empty() {
+                lines.push(url.to_string());
+            }
+            if let Some(description) = entry.link_description.as_deref() {
+                if !description.trim().is_empty() {
+                    lines.push(description.to_string());
+                }
+            }
+            if !lines.is_empty() {
+                return lines.join("\n\n");
+            }
+        }
         if let Some(text) = entry.text_content.as_ref() {
             text.clone()
         } else if let Some(paths) = entry.file_paths.as_ref() {
@@ -872,6 +937,7 @@ fn format_content_type(content_type: &str) -> String {
         "text" => "Text",
         "image" => "Image",
         "files" => "Files",
+        "link" => "Link",
         other => other,
     }
     .to_string()
@@ -880,6 +946,14 @@ fn format_content_type(content_type: &str) -> String {
 fn entry_metrics(entry: &Model) -> (usize, usize) {
     let text = if entry.content_type == "image" {
         entry.ocr_text.as_deref().unwrap_or("")
+    } else if entry.content_type == "link" {
+        entry
+            .link_description
+            .as_deref()
+            .or(entry.link_title.as_deref())
+            .or(entry.link_url.as_deref())
+            .or(entry.text_content.as_deref())
+            .unwrap_or(entry.content.as_str())
     } else {
         entry
             .text_content

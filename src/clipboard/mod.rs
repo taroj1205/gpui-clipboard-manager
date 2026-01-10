@@ -1,3 +1,4 @@
+pub mod link_metadata;
 pub mod ocr;
 pub mod watcher;
 

@@ -14,6 +14,10 @@ pub struct Model {
     pub image_path: Option<String>,
 
     pub file_paths: Option<String>,
+    pub link_url: Option<String>,
+    pub link_title: Option<String>,
+    pub link_description: Option<String>,
+    pub link_site_name: Option<String>,
     pub source_app_title: Option<String>,
     pub source_exe_path: Option<String>,
 }

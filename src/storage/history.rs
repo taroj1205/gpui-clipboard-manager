@@ -68,6 +68,10 @@ pub async fn load_entries_page(
                     .add(Column::TextContent.contains(token))
                     .add(Column::OcrText.contains(token))
                     .add(Column::FilePaths.contains(token))
+                    .add(Column::LinkUrl.contains(token))
+                    .add(Column::LinkTitle.contains(token))
+                    .add(Column::LinkDescription.contains(token))
+                    .add(Column::LinkSiteName.contains(token))
                     .add(Column::SourceAppTitle.contains(token))
                     .add(Column::SourceExePath.contains(token)),
             );
@@ -88,7 +92,10 @@ pub async fn insert_clipboard_entry(
     ocr_text: Option<&str>,
     image_path: Option<&str>,
     file_paths: Option<&str>,
-
+    link_url: Option<&str>,
+    link_title: Option<&str>,
+    link_description: Option<&str>,
+    link_site_name: Option<&str>,
     source_app_title: Option<&str>,
     source_exe_path: Option<&str>,
 ) -> anyhow::Result<()> {
@@ -105,7 +112,10 @@ pub async fn insert_clipboard_entry(
         ocr_text: Set(ocr_text.map(str::to_string)),
         image_path: Set(image_path.map(str::to_string)),
         file_paths: Set(file_paths.map(str::to_string)),
-
+        link_url: Set(link_url.map(str::to_string)),
+        link_title: Set(link_title.map(str::to_string)),
+        link_description: Set(link_description.map(str::to_string)),
+        link_site_name: Set(link_site_name.map(str::to_string)),
         source_app_title: Set(source_app_title.map(str::to_string)),
         source_exe_path: Set(source_exe_path.map(str::to_string)),
         ..Default::default()
