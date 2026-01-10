@@ -52,6 +52,7 @@ impl MigrationTrait for Migration {
                 Index::create()
                     .name("idx_clipboard_created_at")
                     .table(ClipboardEntries::Table)
+                    .if_not_exists()
                     .col(ClipboardEntries::CreatedAt)
                     .to_owned(),
             )
@@ -62,6 +63,7 @@ impl MigrationTrait for Migration {
                 Index::create()
                     .name("idx_clipboard_content_hash")
                     .table(ClipboardEntries::Table)
+                    .if_not_exists()
                     .col(ClipboardEntries::ContentHash)
                     .to_owned(),
             )

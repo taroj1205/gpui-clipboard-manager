@@ -11,12 +11,38 @@ impl MigrationTrait for Migration {
                 Table::alter()
                     .table(ClipboardEntries::Table)
                     .add_column(ColumnDef::new(ClipboardEntries::LinkUrl).string())
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(ClipboardEntries::Table)
                     .add_column(ColumnDef::new(ClipboardEntries::LinkTitle).string())
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(ClipboardEntries::Table)
                     .add_column(ColumnDef::new(ClipboardEntries::LinkDescription).string())
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(ClipboardEntries::Table)
                     .add_column(ColumnDef::new(ClipboardEntries::LinkSiteName).string())
                     .to_owned(),
             )
-            .await
+            .await?;
+
+        Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
@@ -25,12 +51,38 @@ impl MigrationTrait for Migration {
                 Table::alter()
                     .table(ClipboardEntries::Table)
                     .drop_column(ClipboardEntries::LinkUrl)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(ClipboardEntries::Table)
                     .drop_column(ClipboardEntries::LinkTitle)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(ClipboardEntries::Table)
                     .drop_column(ClipboardEntries::LinkDescription)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(ClipboardEntries::Table)
                     .drop_column(ClipboardEntries::LinkSiteName)
                     .to_owned(),
             )
-            .await
+            .await?;
+
+        Ok(())
     }
 }
 

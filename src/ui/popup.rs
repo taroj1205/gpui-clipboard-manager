@@ -687,16 +687,6 @@ fn history_list(
 
 fn history_preview_text(entry: &Model) -> String {
     if entry.content_type == "link" {
-        if let Some(title) = entry.link_title.as_deref() {
-            if !title.trim().is_empty() {
-                return title.to_string();
-            }
-        }
-        if let Some(description) = entry.link_description.as_deref() {
-            if !description.trim().is_empty() {
-                return description.to_string();
-            }
-        }
         let url = entry.link_url.as_deref().or(entry.text_content.as_deref());
         if let Some(url) = url {
             if !url.trim().is_empty() {
@@ -809,26 +799,28 @@ fn detail_info_panel(entries: &[Model], selected_index: usize) -> AnyElement {
         .child(info_row("Type", content_type));
 
     if entry.content_type == "link" {
+        let mut link_rows = Vec::new();
         if let Some(title) = entry.link_title.as_deref() {
             if !title.trim().is_empty() {
-                panel = panel
-                    .child(div().w_full().h(px(1.)).bg(rgba(0xffffff12)))
-                    .child(info_row("Title", title.to_string()));
+                link_rows.push(("Title", title.to_string()));
             }
         }
         if let Some(site_name) = entry.link_site_name.as_deref() {
             if !site_name.trim().is_empty() {
-                panel = panel
-                    .child(div().w_full().h(px(1.)).bg(rgba(0xffffff12)))
-                    .child(info_row("Site", site_name.to_string()));
+                link_rows.push(("Site", site_name.to_string()));
             }
         }
         let url = entry.link_url.as_deref().or(entry.text_content.as_deref());
         if let Some(url) = url {
             if !url.trim().is_empty() {
+                link_rows.push(("URL", url.to_string()));
+            }
+        }
+        if !link_rows.is_empty() {
+            for (label, value) in link_rows {
                 panel = panel
                     .child(div().w_full().h(px(1.)).bg(rgba(0xffffff12)))
-                    .child(info_row("URL", url.to_string()));
+                    .child(info_row(label, value));
             }
         }
     }

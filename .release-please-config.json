@@ -1,0 +1,9 @@
+{
+  "release-type": "rust",
+  "packages": {
+    ".": {
+      "package-name": "gpui-clipboard-manager",
+      "changelog-path": "CHANGELOG.md"
+    }
+  }
+}
