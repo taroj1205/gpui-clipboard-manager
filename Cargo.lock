@@ -2875,6 +2875,7 @@ dependencies = [
  "anyhow",
  "async-std",
  "clipboard-win",
+ "dotenvy",
  "global-hotkey",
  "gpui",
  "image 0.24.9",

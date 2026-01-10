@@ -1,9 +1,14 @@
-use std::time::Duration;
+use std::{env, time::Duration};
 
 use anyhow::{Result, anyhow};
 use async_std::future::timeout;
 use scraper::{Html, Selector};
+use serde_json::json;
 use url::Url;
+
+const GEMINI_MODEL: &str = "gemini-1.5-flash";
+const GEMINI_TIMEOUT: Duration = Duration::from_secs(10);
+const GEMINI_MAX_INPUT_CHARS: usize = 8000;
 
 #[derive(Clone, Debug)]
 pub struct LinkMetadata {
@@ -40,10 +45,18 @@ pub async fn fetch_link_metadata(url: &Url) -> Result<Option<LinkMetadata>> {
     let site_name = meta_content(&document, "meta[property=\"og:site_name\"]")
         .or_else(|| meta_content(&document, "meta[name=\"application-name\"]"));
 
+    let summary = match summarize_with_gemini(url, title.as_deref(), &document).await {
+        Ok(summary) => summary,
+        Err(err) => {
+            eprintln!("Failed to summarize link with Gemini: {err}");
+            None
+        }
+    };
+
     Ok(Some(LinkMetadata {
         url: url.to_string(),
         title,
-        description,
+        description: summary.or(description),
         site_name,
     }))
 }
@@ -60,6 +73,98 @@ async fn fetch_body(url: &Url) -> Result<String> {
         .body_string()
         .await
         .map_err(|err| anyhow!(err.to_string()))
+}
+
+async fn summarize_with_gemini(
+    url: &Url,
+    title: Option<&str>,
+    document: &Html,
+) -> Result<Option<String>> {
+    let api_key = match gemini_api_key() {
+        Some(key) => key,
+        None => return Ok(None),
+    };
+    let source_text = document_text(document);
+    if source_text.is_empty() {
+        return Ok(None);
+    }
+    let truncated = truncate_for_summary(&source_text);
+    let title_line = title
+        .and_then(|value| {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed)
+            }
+        })
+        .unwrap_or("(unknown title)");
+    let prompt = format!(
+        "Summarize the page below in 1-2 concise sentences.\nTitle: {title_line}\nURL: {url}\nContent: {truncated}"
+    );
+
+    let request_body = json!({
+        "contents": [
+            {
+                "role": "user",
+                "parts": [{ "text": prompt }]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.2,
+            "maxOutputTokens": 120
+        }
+    });
+    let endpoint = format!(
+        "https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={api_key}"
+    );
+    let mut response = match timeout(
+        GEMINI_TIMEOUT,
+        surf::post(endpoint).body_json(&request_body)?,
+    )
+    .await
+    {
+        Ok(Ok(response)) => response,
+        Ok(Err(err)) => return Err(anyhow!(err.to_string())),
+        Err(_) => return Ok(None),
+    };
+    if !response.status().is_success() {
+        return Ok(None);
+    }
+    let payload: serde_json::Value = response.body_json().await?;
+    let summary = payload
+        .get("candidates")
+        .and_then(|value| value.get(0))
+        .and_then(|value| value.get("content"))
+        .and_then(|value| value.get("parts"))
+        .and_then(|value| value.get(0))
+        .and_then(|value| value.get("text"))
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_string());
+    Ok(summary)
+}
+
+fn gemini_api_key() -> Option<String> {
+    env::var("GEMINI_API_KEY")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn document_text(document: &Html) -> String {
+    let text = document.root_element().text().collect::<Vec<_>>().join(" ");
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn truncate_for_summary(text: &str) -> String {
+    if text.len() <= GEMINI_MAX_INPUT_CHARS {
+        return text.to_string();
+    }
+    let mut output = text[..GEMINI_MAX_INPUT_CHARS].to_string();
+    output.push_str("...");
+    output
 }
 
 fn title_text(document: &Html) -> Option<String> {
