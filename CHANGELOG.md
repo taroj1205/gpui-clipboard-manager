@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.3.0...gpui-clipboard-manager-v0.4.0) (2026-01-10)
+
+
+### Features
+
+* **link:** allow clicking on the link to open it ([fee7df3](https://github.com/taroj1205/gpui-clipboard-manager/commit/fee7df3965b6a31f41a0a00ecec944143a439d2e))
+
 ## [0.3.0](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.2.0...gpui-clipboard-manager-v0.3.0) (2026-01-10)
 
 
