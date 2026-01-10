@@ -118,12 +118,10 @@ async fn summarize_with_gemini(
     let endpoint = format!(
         "https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={api_key}"
     );
-    let mut response = match timeout(
-        GEMINI_TIMEOUT,
-        surf::post(endpoint).body_json(&request_body)?,
-    )
-    .await
-    {
+    let request = surf::post(endpoint)
+        .body_json(&request_body)
+        .map_err(|err| anyhow!(err.to_string()))?;
+    let mut response = match timeout(GEMINI_TIMEOUT, request).await {
         Ok(Ok(response)) => response,
         Ok(Err(err)) => return Err(anyhow!(err.to_string())),
         Err(_) => return Ok(None),
@@ -131,7 +129,10 @@ async fn summarize_with_gemini(
     if !response.status().is_success() {
         return Ok(None);
     }
-    let payload: serde_json::Value = response.body_json().await?;
+    let payload: serde_json::Value = response
+        .body_json()
+        .await
+        .map_err(|err| anyhow!(err.to_string()))?;
     let summary = payload
         .get("candidates")
         .and_then(|value| value.get(0))
