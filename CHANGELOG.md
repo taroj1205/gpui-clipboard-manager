@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.2.0...gpui-clipboard-manager-v0.3.0) (2026-01-10)
+
+
+### Features
+
+* **enter:** add press enter to copy the content ([3170940](https://github.com/taroj1205/gpui-clipboard-manager/commit/317094020b691be7f3072a965a3ddef3fc7a5e8d))
+
+
+### Bug Fixes
+
+* **release:** build before publishing a release ([d1aa89b](https://github.com/taroj1205/gpui-clipboard-manager/commit/d1aa89b2a6f3cf639e5575ee68ca35f6bf77b8b0))
+
 ## [0.2.0](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.1.0...gpui-clipboard-manager-v0.2.0) (2026-01-10)
 
 
