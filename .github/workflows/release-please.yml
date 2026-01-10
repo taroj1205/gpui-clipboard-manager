@@ -21,6 +21,7 @@ jobs:
         with:
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
+          draft: true
   build-windows:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
@@ -47,4 +48,5 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.release-please.outputs.tag_name }}
+          draft: false
           files: gpui-clipboard-manager.exe

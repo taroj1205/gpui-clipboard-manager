@@ -859,14 +859,21 @@ fn detail_link_body_list(
                 }
 
                 if let Some(url) = url.clone() {
-                    container =
-                        container.child(div().text_color(rgb(0x93c5fd)).whitespace_normal().child(
-                            HighlightedText::new_with_mode(
+                    let url_for_open = url.to_string();
+                    container = container.child(
+                        div()
+                            .id("detail-link-url")
+                            .text_color(rgb(0x93c5fd))
+                            .whitespace_normal()
+                            .cursor_pointer()
+                            .hover(|style| style.underline())
+                            .on_click(move |_, _, cx| cx.open_url(&url_for_open))
+                            .child(HighlightedText::new_with_mode(
                                 url,
                                 query.clone(),
                                 HighlightMatchMode::AnyToken,
-                            ),
-                        ));
+                            )),
+                    );
                 }
 
                 if let Some(description) = description.clone() {
@@ -1164,7 +1171,7 @@ impl Element for HighlightedText {
             font: style.font(),
             color: style.color,
             background_color: None,
-            underline: None,
+            underline: style.underline,
             strikethrough: None,
         }];
         let line =
