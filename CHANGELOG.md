@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.1](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.4.0...gpui-clipboard-manager-v0.4.1) (2026-01-10)
+
+
+### Bug Fixes
+
+* **focus:** make it focus input on opening window ([0567c81](https://github.com/taroj1205/gpui-clipboard-manager/commit/0567c8119e10e5b252c3b0f475002d0ecfc3ee5e))
+* **release:** draft the release and wait for build ([3f6fbdc](https://github.com/taroj1205/gpui-clipboard-manager/commit/3f6fbdc1043ebaae2f6654852570612363129fa1))
+
 ## [0.4.0](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.3.0...gpui-clipboard-manager-v0.4.0) (2026-01-10)
 
 
