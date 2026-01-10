@@ -724,6 +724,11 @@ fn detail_body_list(
                 return detail_image_body_list(path, cx, list_state);
             }
         }
+        if entry.content_type == "link" {
+            if let Some(panel) = detail_link_body_list(entry, query, cx, list_state.clone()) {
+                return panel;
+            }
+        }
     }
 
     let body = detail_body(entries, selected_index);
@@ -771,6 +776,125 @@ fn detail_image_body_list(
     .h_full()
     .w_full()
     .into_any_element()
+}
+
+fn detail_link_body_list(
+    entry: &Model,
+    query: &str,
+    cx: &mut Context<PopupView>,
+    list_state: ListState,
+) -> Option<AnyElement> {
+    let title = entry.link_title.as_deref().and_then(|value| {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    });
+    let url = entry
+        .link_url
+        .as_deref()
+        .or(entry.text_content.as_deref())
+        .or(Some(entry.content.as_str()))
+        .and_then(|value| {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        });
+    let description = entry.link_description.as_deref().and_then(|value| {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    });
+    let site_label = entry.link_site_name.as_deref().and_then(|value| {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(format!("Source: {trimmed}"))
+        }
+    });
+
+    if title.is_none() && url.is_none() && description.is_none() && site_label.is_none() {
+        return None;
+    }
+
+    let title = title.map(SharedString::from);
+    let url = url.map(SharedString::from);
+    let description = description.map(SharedString::from);
+    let site_label = site_label.map(SharedString::from);
+    let query = query.to_string();
+
+    Some(
+        list(
+            list_state,
+            cx.processor(move |_view, _index, _window, _cx| {
+                let mut container = div()
+                    .w_full()
+                    .flex()
+                    .flex_col()
+                    .gap_2()
+                    .rounded_md()
+                    .bg(rgba(0xffffff08))
+                    .p_2();
+
+                if let Some(title) = title.clone() {
+                    container =
+                        container.child(div().text_color(rgb(0xf1f5f9)).whitespace_normal().child(
+                            HighlightedText::new_with_mode(
+                                title,
+                                query.clone(),
+                                HighlightMatchMode::AnyToken,
+                            ),
+                        ));
+                }
+
+                if let Some(url) = url.clone() {
+                    container =
+                        container.child(div().text_color(rgb(0x93c5fd)).whitespace_normal().child(
+                            HighlightedText::new_with_mode(
+                                url,
+                                query.clone(),
+                                HighlightMatchMode::AnyToken,
+                            ),
+                        ));
+                }
+
+                if let Some(description) = description.clone() {
+                    container =
+                        container.child(div().text_color(rgb(0x9aa4af)).whitespace_normal().child(
+                            HighlightedText::new_with_mode(
+                                description,
+                                query.clone(),
+                                HighlightMatchMode::AnyToken,
+                            ),
+                        ));
+                }
+
+                if let Some(site_label) = site_label.clone() {
+                    container = container.child(div().text_xs().text_color(rgb(0x94a3b8)).child(
+                        HighlightedText::new_with_mode(
+                            site_label,
+                            query.clone(),
+                            HighlightMatchMode::AnyToken,
+                        ),
+                    ));
+                }
+
+                container.into_any_element()
+            }),
+        )
+        .h_full()
+        .w_full()
+        .into_any_element(),
+    )
 }
 
 fn detail_info_panel(entries: &[Model], selected_index: usize) -> AnyElement {
