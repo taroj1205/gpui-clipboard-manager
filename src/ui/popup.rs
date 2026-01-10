@@ -80,6 +80,10 @@ impl PopupView {
             load_generation: 0,
         };
 
+        cx.on_next_frame(window, |view, window, cx| {
+            cx.focus_view(&view.search_input, window);
+        });
+
         cx.spawn(
             |view: gpui::WeakEntity<PopupView>, cx: &mut gpui::AsyncApp| {
                 let mut async_cx = cx.clone();
@@ -159,6 +163,9 @@ impl PopupView {
         }
         window.activate_window();
         self.is_visible = true;
+        cx.on_next_frame(window, |view, window, cx| {
+            cx.focus_view(&view.search_input, window);
+        });
         cx.notify();
     }
 
@@ -189,7 +196,11 @@ impl PopupView {
             return;
         }
         let len = self.entries.len();
-        let next = (self.selected_index as isize + delta).rem_euclid(len as isize) as usize;
+        if delta > 0 && self.selected_index + 1 >= len {
+            self.load_entries(false, cx);
+            return;
+        }
+        let next = (self.selected_index as isize + delta).clamp(0, len as isize - 1) as usize;
         if next != self.selected_index {
             self.selected_index = next;
             self.list_scroll
