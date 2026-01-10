@@ -649,8 +649,12 @@ fn history_list(
                     .text_color(text_color)
                     .on_mouse_down(
                         MouseButton::Left,
-                        _cx.listener(move |view, _: &MouseDownEvent, _window, cx| {
+                        _cx.listener(move |view, event: &MouseDownEvent, window, cx| {
                             view.select_index(index, cx);
+                            if event.click_count >= 2 {
+                                view.copy_selected(cx);
+                                view.hide(window, cx);
+                            }
                         }),
                     );
                 if !is_selected {
