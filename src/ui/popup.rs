@@ -46,7 +46,11 @@ pub struct PopupView {
 }
 
 impl PopupView {
-    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        window: &mut Window,
+        cx: &mut Context<Self>,
+        clipboard_updates: std::sync::mpsc::Receiver<()>,
+    ) -> Self {
         cx.observe_window_activation(window, |view, window, cx| {
             if window.is_window_active() {
                 return;
@@ -100,6 +104,36 @@ impl PopupView {
                             view.db = Some(db);
                             view.reset_and_load(cx);
                         });
+                    }
+                }
+            },
+        )
+        .detach();
+
+        cx.spawn(
+            move |view: gpui::WeakEntity<PopupView>, cx: &mut gpui::AsyncApp| {
+                let mut async_cx = cx.clone();
+                async move {
+                    loop {
+                        let mut received = false;
+                        while clipboard_updates.try_recv().is_ok() {
+                            received = true;
+                        }
+                        if received {
+                            if let Some(handle) = view.upgrade() {
+                                let _ =
+                                    async_cx.update_entity(&handle, |view: &mut PopupView, cx| {
+                                        view.reset_and_load(cx);
+                                    });
+                            } else {
+                                break;
+                            }
+                        }
+
+                        async_cx
+                            .background_executor()
+                            .timer(Duration::from_millis(30))
+                            .await;
                     }
                 }
             },
@@ -691,7 +725,9 @@ fn detail_body_list(
     let body = detail_body(entries, selected_index);
     let query = query.to_string();
     let lines: Vec<SharedString> = body
-        .split('\n')
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
         .map(|line| line.to_string().into())
         .collect();
     list(
@@ -699,7 +735,11 @@ fn detail_body_list(
         cx.processor(move |_view, _index, _window, _cx| {
             let mut container = div().w_full().whitespace_normal().flex().flex_col().gap_1();
             for line in &lines {
-                container = container.child(HighlightedText::new(line.clone(), query.clone()));
+                container = container.child(HighlightedText::new_with_mode(
+                    line.clone(),
+                    query.clone(),
+                    HighlightMatchMode::AnyToken,
+                ));
             }
             container.into_any_element()
         }),
@@ -784,8 +824,7 @@ fn info_row(label: &str, value: String) -> AnyElement {
         .overflow_hidden()
         .child(
             div()
-                .w_1_3()
-                .flex_shrink_0()
+                .flex_1()
                 .text_color(rgb(0x9aa4af))
                 .overflow_hidden()
                 .text_ellipsis()
@@ -793,7 +832,9 @@ fn info_row(label: &str, value: String) -> AnyElement {
         )
         .child(
             div()
-                .flex_1()
+                .w_full()
+                .min_w(px(0.))
+                .max_w(px(250.))
                 .overflow_hidden()
                 .text_color(rgb(0xf1f5f9))
                 .text_right()
@@ -837,32 +878,47 @@ fn format_content_type(content_type: &str) -> String {
 }
 
 fn entry_metrics(entry: &Model) -> (usize, usize) {
-    if entry.content_type == "image" {
-        return (0, 0);
-    }
-
-    let text = entry
-        .text_content
-        .as_deref()
-        .or(entry.file_paths.as_deref())
-        .unwrap_or(entry.content.as_str());
+    let text = if entry.content_type == "image" {
+        entry.ocr_text.as_deref().unwrap_or("")
+    } else {
+        entry
+            .text_content
+            .as_deref()
+            .or(entry.file_paths.as_deref())
+            .unwrap_or(entry.content.as_str())
+    };
     let characters = text.chars().count();
     let words = text.unicode_words().count();
     (characters, words)
 }
 
+enum HighlightMatchMode {
+    AllTokens,
+    AnyToken,
+}
+
 struct HighlightedText {
     query: SharedString,
     display_text: SharedString,
+    match_mode: HighlightMatchMode,
 }
 
 impl HighlightedText {
     fn new(text: impl Into<SharedString>, query: impl Into<SharedString>) -> Self {
+        Self::new_with_mode(text, query, HighlightMatchMode::AllTokens)
+    }
+
+    fn new_with_mode(
+        text: impl Into<SharedString>,
+        query: impl Into<SharedString>,
+        match_mode: HighlightMatchMode,
+    ) -> Self {
         let text: SharedString = text.into();
         let display_text: SharedString = text.replace('\n', " ").into();
         Self {
             query: query.into(),
             display_text,
+            match_mode,
         }
     }
 }
@@ -923,7 +979,7 @@ impl Element for HighlightedText {
             window
                 .text_system()
                 .shape_line(self.display_text.clone(), font_size, &runs, None);
-        let ranges = match_ranges(&self.display_text, &self.query);
+        let ranges = match_ranges(&self.display_text, &self.query, &self.match_mode);
         Some((line, ranges))
     }
 
@@ -961,12 +1017,16 @@ impl Element for HighlightedText {
     }
 }
 
-fn match_ranges(text: &str, query: &str) -> Vec<std::ops::Range<usize>> {
-    let positions = token_prefix_positions(text, query);
+fn match_ranges(
+    text: &str,
+    query: &str,
+    match_mode: &HighlightMatchMode,
+) -> Vec<std::ops::Range<usize>> {
+    let positions = token_prefix_positions(text, query, match_mode);
     positions_to_ranges(text, &positions)
 }
 
-fn token_prefix_positions(text: &str, query: &str) -> Vec<usize> {
+fn token_prefix_positions(text: &str, query: &str, match_mode: &HighlightMatchMode) -> Vec<usize> {
     let tokens: Vec<&str> = query.split_whitespace().collect();
     if tokens.is_empty() {
         return Vec::new();
@@ -979,10 +1039,23 @@ fn token_prefix_positions(text: &str, query: &str) -> Vec<usize> {
         if token.is_empty() {
             continue;
         }
-        let Some(positions) = prefix_positions_for_token(text, &word_starts, token) else {
-            return Vec::new();
-        };
-        all_positions.extend(positions);
+        let positions = prefix_positions_for_token(text, &word_starts, token);
+        match (match_mode, positions) {
+            (HighlightMatchMode::AllTokens, Some(positions)) => {
+                all_positions.extend(positions);
+            }
+            (HighlightMatchMode::AllTokens, None) => {
+                return Vec::new();
+            }
+            (HighlightMatchMode::AnyToken, Some(positions)) => {
+                all_positions.extend(positions);
+            }
+            (HighlightMatchMode::AnyToken, None) => {}
+        }
+    }
+
+    if all_positions.is_empty() {
+        return Vec::new();
     }
 
     all_positions.sort_unstable();

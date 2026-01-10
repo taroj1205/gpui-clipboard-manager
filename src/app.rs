@@ -7,13 +7,15 @@ use crate::clipboard::start_clipboard_history;
 use crate::hotkeys::setup_global_hotkey;
 use crate::ui::popup::{PopupView, bind_popup_keys};
 use crate::ui::text_input::bind_text_input_keys;
+use std::sync::mpsc;
 
 pub fn run() {
     Application::new().run(|cx: &mut App| {
         let bounds = Bounds::centered(None, size(px(750.), px(500.0)), cx);
         bind_text_input_keys(cx);
         bind_popup_keys(cx);
-        start_clipboard_history(cx);
+        let (clipboard_tx, clipboard_rx) = mpsc::channel();
+        start_clipboard_history(cx, clipboard_tx);
         let window = cx
             .open_window(
                 WindowOptions {
@@ -25,7 +27,7 @@ pub fn run() {
                     is_minimizable: false,
                     ..Default::default()
                 },
-                |window, cx| cx.new(|cx| PopupView::new(window, cx)),
+                move |window, cx| cx.new(|cx| PopupView::new(window, cx, clipboard_rx)),
             )
             .unwrap();
 

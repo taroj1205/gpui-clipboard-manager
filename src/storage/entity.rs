@@ -10,7 +10,9 @@ pub struct Model {
     pub content_type: String,
     pub content_hash: String,
     pub text_content: Option<String>,
+    pub ocr_text: Option<String>,
     pub image_path: Option<String>,
+
     pub file_paths: Option<String>,
     pub source_app_title: Option<String>,
     pub source_exe_path: Option<String>,

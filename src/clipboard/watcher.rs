@@ -17,23 +17,29 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 
 #[cfg(target_os = "windows")]
+use crate::clipboard::ocr::extract_text_from_image;
+#[cfg(target_os = "windows")]
 use crate::storage::history::{insert_clipboard_entry, load_last_hash, open_db};
 #[cfg(target_os = "windows")]
 use crate::storage::images::save_image_bytes;
 #[cfg(target_os = "windows")]
 use crate::storage::path::default_db_path;
+use std::sync::mpsc::Sender;
 
-pub fn start_clipboard_history(cx: &mut App) {
+pub fn start_clipboard_history(cx: &mut App, update_tx: Sender<()>) {
+    #[cfg(not(target_os = "windows"))]
+    let _ = update_tx;
+
     #[cfg(target_os = "windows")]
     {
-        if let Err(err) = start_windows_clipboard_history(cx) {
+        if let Err(err) = start_windows_clipboard_history(cx, update_tx) {
             eprintln!("Failed to start clipboard history: {err}");
         }
     }
 }
 
 #[cfg(target_os = "windows")]
-fn start_windows_clipboard_history(cx: &mut App) -> anyhow::Result<()> {
+fn start_windows_clipboard_history(cx: &mut App, update_tx: Sender<()>) -> anyhow::Result<()> {
     let db_path = default_db_path()?;
 
     cx.spawn(async move |cx| {
@@ -53,7 +59,7 @@ fn start_windows_clipboard_history(cx: &mut App) -> anyhow::Result<()> {
         };
 
         loop {
-            match read_clipboard_entry() {
+            match read_clipboard_entry().await {
                 Ok(Some(entry)) => {
                     if last_hash.as_deref() != Some(entry.content_hash.as_str()) {
                         if let Err(err) = insert_clipboard_entry(
@@ -62,6 +68,7 @@ fn start_windows_clipboard_history(cx: &mut App) -> anyhow::Result<()> {
                             &entry.content_hash,
                             &entry.content,
                             entry.text_content.as_deref(),
+                            entry.ocr_text.as_deref(),
                             entry.image_path.as_deref(),
                             entry.file_paths.as_deref(),
                             entry.source_app_title.as_deref(),
@@ -72,6 +79,7 @@ fn start_windows_clipboard_history(cx: &mut App) -> anyhow::Result<()> {
                             eprintln!("Failed to write clipboard entry: {err}");
                         } else {
                             last_hash = Some(entry.content_hash);
+                            let _ = update_tx.send(());
                         }
                     }
                 }
@@ -97,6 +105,7 @@ struct ClipboardEntry {
     content_hash: String,
     content: String,
     text_content: Option<String>,
+    ocr_text: Option<String>,
     image_path: Option<String>,
     file_paths: Option<String>,
     source_app_title: Option<String>,
@@ -104,7 +113,7 @@ struct ClipboardEntry {
 }
 
 #[cfg(target_os = "windows")]
-fn read_clipboard_entry() -> anyhow::Result<Option<ClipboardEntry>> {
+async fn read_clipboard_entry() -> anyhow::Result<Option<ClipboardEntry>> {
     let _clip = Clipboard::new_attempts(10)
         .map_err(|err| anyhow::anyhow!("Clipboard open failed: {err}"))?;
 
@@ -123,6 +132,7 @@ fn read_clipboard_entry() -> anyhow::Result<Option<ClipboardEntry>> {
                 content,
                 None,
                 None,
+                None,
                 Some(file_paths),
             )));
         }
@@ -136,11 +146,19 @@ fn read_clipboard_entry() -> anyhow::Result<Option<ClipboardEntry>> {
         if !bytes.is_empty() {
             let content_hash = hash_bytes(&bytes);
             let image_path = save_image_bytes(&content_hash, &bytes)?;
+            let ocr_text = match extract_text_from_image(&bytes).await {
+                Ok(text) => text,
+                Err(err) => {
+                    eprintln!("Failed to OCR image: {err}");
+                    None
+                }
+            };
             return Ok(Some(build_entry(
                 "image",
                 content_hash,
                 "Image".to_string(),
                 None,
+                ocr_text,
                 Some(image_path.to_string_lossy().to_string()),
                 None,
             )));
@@ -162,6 +180,7 @@ fn read_clipboard_entry() -> anyhow::Result<Option<ClipboardEntry>> {
                 Some(trimmed.to_string()),
                 None,
                 None,
+                None,
             )));
         }
     }
@@ -175,6 +194,7 @@ fn build_entry(
     content_hash: String,
     content: String,
     text_content: Option<String>,
+    ocr_text: Option<String>,
     image_path: Option<String>,
     file_paths: Option<String>,
 ) -> ClipboardEntry {
@@ -184,6 +204,7 @@ fn build_entry(
         content_hash,
         content,
         text_content,
+        ocr_text,
         image_path,
         file_paths,
         source_app_title,

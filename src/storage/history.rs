@@ -66,6 +66,7 @@ pub async fn load_entries_page(
                 Condition::any()
                     .add(Column::Content.contains(token))
                     .add(Column::TextContent.contains(token))
+                    .add(Column::OcrText.contains(token))
                     .add(Column::FilePaths.contains(token))
                     .add(Column::SourceAppTitle.contains(token))
                     .add(Column::SourceExePath.contains(token)),
@@ -84,8 +85,10 @@ pub async fn insert_clipboard_entry(
     content_hash: &str,
     content: &str,
     text_content: Option<&str>,
+    ocr_text: Option<&str>,
     image_path: Option<&str>,
     file_paths: Option<&str>,
+
     source_app_title: Option<&str>,
     source_exe_path: Option<&str>,
 ) -> anyhow::Result<()> {
@@ -99,8 +102,10 @@ pub async fn insert_clipboard_entry(
         content_type: Set(content_type.to_string()),
         content_hash: Set(content_hash.to_string()),
         text_content: Set(text_content.map(str::to_string)),
+        ocr_text: Set(ocr_text.map(str::to_string)),
         image_path: Set(image_path.map(str::to_string)),
         file_paths: Set(file_paths.map(str::to_string)),
+
         source_app_title: Set(source_app_title.map(str::to_string)),
         source_exe_path: Set(source_exe_path.map(str::to_string)),
         ..Default::default()
