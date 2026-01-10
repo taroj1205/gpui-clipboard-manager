@@ -22,6 +22,7 @@ pub fn bind_popup_keys(cx: &mut App) {
         KeyBinding::new("up", MoveUp, Some("Popup")),
         KeyBinding::new("down", MoveDown, Some("Popup")),
         KeyBinding::new("enter", ConfirmSelection, Some("Popup")),
+        KeyBinding::new("enter", ConfirmSelection, Some("TextInput")),
     ]);
 }
 
@@ -176,10 +177,11 @@ impl PopupView {
     fn on_confirm_selection(
         &mut self,
         _: &ConfirmSelection,
-        _: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         self.copy_selected(cx);
+        self.hide(window, cx);
     }
 
     fn move_selection(&mut self, delta: isize, cx: &mut Context<Self>) {
