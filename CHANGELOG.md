@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.6.0...gpui-clipboard-manager-v0.6.1) (2026-01-15)
+
+
+### Bug Fixes
+
+* **build:** fix build opening terminal ([#8](https://github.com/taroj1205/gpui-clipboard-manager/issues/8)) ([b598125](https://github.com/taroj1205/gpui-clipboard-manager/commit/b598125f3536339c39966b8c2e49a0860bcb67f0))
+
 ## [0.6.0](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.5.0...gpui-clipboard-manager-v0.6.0) (2026-01-10)
 
 
