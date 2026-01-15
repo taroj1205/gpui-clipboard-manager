@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.7.0...gpui-clipboard-manager-v0.7.1) (2026-01-15)
+
+
+### Bug Fixes
+
+* **app:** fix terminal opening up on opening ([6dd597e](https://github.com/taroj1205/gpui-clipboard-manager/commit/6dd597ef2c396f5741b5ac082002fce80837e842))
+
 ## [0.7.0](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.6.1...gpui-clipboard-manager-v0.7.0) (2026-01-15)
 
 
