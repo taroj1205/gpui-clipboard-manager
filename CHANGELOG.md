@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.7.1...gpui-clipboard-manager-v0.7.2) (2026-01-16)
+
+
+### Bug Fixes
+
+* **clippy:** fix errors given by clippy ([#14](https://github.com/taroj1205/gpui-clipboard-manager/issues/14)) ([b4928ad](https://github.com/taroj1205/gpui-clipboard-manager/commit/b4928addd4428c38c66143a8ef6573b292fc55fe))
+
 ## [0.7.1](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.7.0...gpui-clipboard-manager-v0.7.1) (2026-01-15)
 
 
