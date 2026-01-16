@@ -5,15 +5,19 @@ use gpui::{
     TextRun, UniformListScrollHandle, Window, actions, canvas, div, fill, img, list, point,
     prelude::*, px, relative, rgb, rgba, size, uniform_list,
 };
+use gpui_component::{
+    Icon, IconName, Sizable,
+    input::{Input, InputState},
+};
 use sea_orm::DatabaseConnection;
 use std::path::PathBuf;
+
 use std::time::Duration;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::storage::entity::Model;
 use crate::storage::history::{load_entries_page, open_db};
 use crate::storage::path::default_db_path;
-use crate::ui::text_input::TextInput;
 
 actions!(popup, [TogglePopup, MoveUp, MoveDown, ConfirmSelection]);
 
@@ -22,13 +26,13 @@ pub fn bind_popup_keys(cx: &mut App) {
         KeyBinding::new("up", MoveUp, Some("Popup")),
         KeyBinding::new("down", MoveDown, Some("Popup")),
         KeyBinding::new("enter", ConfirmSelection, Some("Popup")),
-        KeyBinding::new("enter", ConfirmSelection, Some("TextInput")),
+        KeyBinding::new("enter", ConfirmSelection, Some("Input")),
     ]);
 }
 
 pub struct PopupView {
     is_visible: bool,
-    search_input: gpui::Entity<TextInput>,
+    search_input: gpui::Entity<InputState>,
     entries: Vec<Model>,
     search_query: String,
     selected_index: usize,
@@ -59,7 +63,11 @@ impl PopupView {
             view.hide(window, cx);
         })
         .detach();
-        let search_input = cx.new(|cx| TextInput::new("Search clipboard...", cx));
+        let search_input = cx.new(|cx| {
+            InputState::new(window, cx)
+                .placeholder("Search clipboard...")
+                .clean_on_escape()
+        });
         let view = Self {
             is_visible: true,
             search_input,
@@ -507,7 +515,7 @@ impl PopupView {
 
 impl Render for PopupView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let query = self.search_input.read(cx).text().trim().to_string();
+        let query = self.search_input.read(cx).value().trim().to_string();
         if query != self.search_query {
             self.search_query = query;
             self.reset_and_load(cx);
@@ -523,8 +531,7 @@ impl Render for PopupView {
             .size_full()
             .flex()
             .flex_col()
-            .gap_x_1()
-            .gap_y_2()
+            .gap_1()
             .bg(rgb(0x1a1a1a))
             .text_color(rgb(0xf3f4f6))
             .text_sm()
@@ -534,8 +541,14 @@ impl Render for PopupView {
             .on_action(cx.listener(Self::on_move_up))
             .on_action(cx.listener(Self::on_move_down))
             .on_action(cx.listener(Self::on_confirm_selection))
-            .child(div().w_full().child(self.search_input.clone()))
-            .child(div().w_full().h(px(1.)).bg(rgba(0xffffff20)))
+            .child(
+                div().w_full().child(
+                    Input::new(&self.search_input)
+                        .prefix(Icon::new(IconName::Search).small())
+                        .appearance(false),
+                ),
+            )
+            .child(div().w_full().h(px(1.)).bg(rgba(0xffffff20)).mb_1())
             .child(
                 div()
                     .flex_1()
@@ -569,6 +582,7 @@ impl Render for PopupView {
                             .flex_1()
                             .flex()
                             .flex_col()
+                            .justify_between()
                             .gap_3()
                             .child(div().flex_1().px_1().text_color(rgb(0xf1f5f9)).child(
                                 detail_body_list(
@@ -935,49 +949,69 @@ fn detail_info_panel(entries: &[Model], selected_index: usize) -> AnyElement {
     let content_type = format_content_type(&entry.content_type);
     let (characters, words) = entry_metrics(entry);
 
-    let mut panel = div()
-        .px_1()
-        .flex()
-        .flex_col()
-        .gap_1()
-        .text_xs()
-        .child(div().text_color(rgb(0xf1f5f9)).child("Information"))
-        .child(info_row("Source", source))
-        .child(div().w_full().h(px(1.)).bg(rgba(0xffffff12)))
-        .child(info_row("Type", content_type));
+    let mut items = vec![
+        ("Source".to_string(), source),
+        ("Type".to_string(), content_type),
+    ];
 
     if entry.content_type == "link" {
-        let mut link_rows = Vec::new();
         if let Some(title) = entry.link_title.as_deref()
             && !title.trim().is_empty()
         {
-            link_rows.push(("Title", title.to_string()));
+            items.push(("Title".to_string(), title.to_string()));
         }
         if let Some(site_name) = entry.link_site_name.as_deref()
             && !site_name.trim().is_empty()
         {
-            link_rows.push(("Site", site_name.to_string()));
+            items.push(("Site".to_string(), site_name.to_string()));
         }
         let url = entry.link_url.as_deref().or(entry.text_content.as_deref());
         if let Some(url) = url
             && !url.trim().is_empty()
         {
-            link_rows.push(("URL", url.to_string()));
-        }
-        if !link_rows.is_empty() {
-            for (label, value) in link_rows {
-                panel = panel
-                    .child(div().w_full().h(px(1.)).bg(rgba(0xffffff12)))
-                    .child(info_row(label, value));
-            }
+            items.push(("URL".to_string(), url.to_string()));
         }
     }
 
-    panel
-        .child(div().w_full().h(px(1.)).bg(rgba(0xffffff12)))
-        .child(info_row("Characters", characters.to_string()))
-        .child(div().w_full().h(px(1.)).bg(rgba(0xffffff12)))
-        .child(info_row("Words", words.to_string()))
+    items.push(("Characters".to_string(), characters.to_string()));
+    items.push(("Words".to_string(), words.to_string()));
+
+    let mut list = div().flex().flex_col().gap_1();
+    let item_count = items.len();
+    for (index, (label, value)) in items.into_iter().enumerate() {
+        list = list.child(
+            div()
+                .flex()
+                .items_start()
+                .justify_between()
+                .gap_2()
+                .text_xs()
+                .child(div().text_color(rgb(0xb6c0cb)).child(label))
+                .child(
+                    div()
+                        .max_w(px(400.))
+                        .text_color(rgb(0xf1f5f9))
+                        .text_ellipsis()
+                        .child(value),
+                ),
+        );
+        if index + 1 < item_count {
+            list = list.child(div().h(px(1.)).bg(rgba(0xffffff12)));
+        }
+    }
+
+    div()
+        .px_1()
+        .flex()
+        .flex_col()
+        .gap_1()
+        .child(
+            div()
+                .text_color(rgb(0xf1f5f9))
+                .child("Information")
+                .text_xs(),
+        )
+        .child(list)
         .into_any_element()
 }
 
@@ -1019,34 +1053,6 @@ fn detail_body(entries: &[Model], selected_index: usize) -> String {
     } else {
         "Select a clipboard item to see details.".to_string()
     }
-}
-
-fn info_row(label: &str, value: String) -> AnyElement {
-    div()
-        .w_full()
-        .flex()
-        .gap_2()
-        .overflow_hidden()
-        .child(
-            div()
-                .flex_1()
-                .text_color(rgb(0x9aa4af))
-                .overflow_hidden()
-                .text_ellipsis()
-                .child(label.to_string()),
-        )
-        .child(
-            div()
-                .w_full()
-                .min_w(px(0.))
-                .max_w(px(250.))
-                .overflow_hidden()
-                .text_color(rgb(0xf1f5f9))
-                .text_right()
-                .text_ellipsis()
-                .child(value),
-        )
-        .into_any_element()
 }
 
 fn source_label(entry: &Model) -> String {
