@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use async_std::future::timeout;
 use scraper::{Html, Selector};
 use url::Url;

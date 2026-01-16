@@ -48,26 +48,24 @@ pub fn setup_global_hotkey(cx: &mut App, handle: WindowHandle<Root>) -> anyhow::
         });
     }
 
-    cx.spawn(async move |cx| {
-        loop {
-            if event_rx.try_recv().is_ok() {
-                let _ = cx.update(|cx| {
-                    cx.activate(true);
-                    let window = handle;
-                    let _ = window.update(cx, |root, window, cx| {
-                        if let Ok(view) = root.view().clone().downcast::<PopupView>() {
-                            view.update(cx, |view, cx| {
-                                view.toggle_visible(window, cx);
-                            });
-                        }
-                    });
+    cx.spawn(async move |cx| loop {
+        if event_rx.try_recv().is_ok() {
+            let _ = cx.update(|cx| {
+                cx.activate(true);
+                let window = handle;
+                let _ = window.update(cx, |root, window, cx| {
+                    if let Ok(view) = root.view().clone().downcast::<PopupView>() {
+                        view.update(cx, |view, cx| {
+                            view.toggle_visible(window, cx);
+                        });
+                    }
                 });
-            }
-
-            cx.background_executor()
-                .timer(Duration::from_millis(30))
-                .await;
+            });
         }
+
+        cx.background_executor()
+            .timer(Duration::from_millis(30))
+            .await;
     })
     .detach();
 
@@ -77,10 +75,10 @@ pub fn setup_global_hotkey(cx: &mut App, handle: WindowHandle<Root>) -> anyhow::
 #[cfg(target_os = "windows")]
 fn register_windows_hotkey(event_tx: mpsc::Sender<()>) -> anyhow::Result<()> {
     use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-        MOD_ALT, MOD_SHIFT, RegisterHotKey, VK_V,
+        RegisterHotKey, MOD_ALT, MOD_SHIFT, VK_V,
     };
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        DispatchMessageW, GetMessageW, MSG, TranslateMessage, WM_HOTKEY,
+        DispatchMessageW, GetMessageW, TranslateMessage, MSG, WM_HOTKEY,
     };
 
     const HOTKEY_ID: i32 = 1;

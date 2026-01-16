@@ -2,14 +2,14 @@ use gpui::App;
 use std::time::Duration;
 
 #[cfg(target_os = "windows")]
-use clipboard_win::{Clipboard, Format, Getter, formats};
+use clipboard_win::{formats, Clipboard, Format, Getter};
 #[cfg(target_os = "windows")]
 use sha2::{Digest, Sha256};
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::Foundation::{CloseHandle, HWND};
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::System::Threading::{
-    OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
+    OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION,
 };
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -17,13 +17,13 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 
 #[cfg(target_os = "windows")]
-use crate::clipboard::link_metadata::{LinkMetadata, fetch_link_metadata, parse_link_url};
+use crate::clipboard::link_metadata::{fetch_link_metadata, parse_link_url, LinkMetadata};
 #[cfg(target_os = "windows")]
 use crate::clipboard::ocr::extract_text_from_image;
 #[cfg(target_os = "windows")]
 use crate::storage::history::{
-    ClipboardEntryInput as StorageClipboardEntryInput, insert_clipboard_entry, load_last_hash,
-    open_db,
+    insert_clipboard_entry, load_last_hash, open_db,
+    ClipboardEntryInput as StorageClipboardEntryInput,
 };
 #[cfg(target_os = "windows")]
 use crate::storage::images::save_image_bytes;

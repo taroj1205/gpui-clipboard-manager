@@ -1,13 +1,13 @@
 use gpui::{
-    AnyElement, App, Bounds, ClipboardItem, Context, Element, ElementId, GlobalElementId,
-    KeyBinding, LayoutId, ListAlignment, ListState, MouseButton, MouseDownEvent, MouseMoveEvent,
-    MouseUpEvent, ObjectFit, Pixels, Point, ScrollStrategy, ShapedLine, SharedString, Style,
-    TextRun, UniformListScrollHandle, Window, actions, canvas, div, fill, img, list, point,
-    prelude::*, px, relative, rgb, rgba, size, uniform_list,
+    actions, canvas, div, fill, img, list, point, prelude::*, px, relative, rgb, rgba, size,
+    uniform_list, AnyElement, App, Bounds, ClipboardItem, Context, Element, ElementId,
+    GlobalElementId, KeyBinding, LayoutId, ListAlignment, ListState, MouseButton, MouseDownEvent,
+    MouseMoveEvent, MouseUpEvent, ObjectFit, Pixels, Point, ScrollStrategy, ShapedLine,
+    SharedString, Style, TextRun, UniformListScrollHandle, Window,
 };
 use gpui_component::{
-    Icon, IconName, Sizable,
     input::{Input, InputState},
+    Icon, IconName, Sizable,
 };
 use sea_orm::DatabaseConnection;
 use std::path::PathBuf;
@@ -719,10 +719,10 @@ fn history_list(
 fn history_preview_text(entry: &Model) -> String {
     if entry.content_type == "link" {
         let url = entry.link_url.as_deref().or(entry.text_content.as_deref());
-        if let Some(url) = url
-            && !url.trim().is_empty()
-        {
-            return url.to_string();
+        if let Some(url) = url {
+            if !url.trim().is_empty() {
+                return url.to_string();
+            }
         }
     }
     let text = entry
@@ -750,15 +750,15 @@ fn detail_body_list(
     list_state: ListState,
 ) -> AnyElement {
     if let Some(entry) = entries.get(selected_index) {
-        if entry.content_type == "image"
-            && let Some(path) = entry.image_path.as_deref()
-        {
-            return detail_image_body_list(path, cx, list_state);
+        if entry.content_type == "image" {
+            if let Some(path) = entry.image_path.as_deref() {
+                return detail_image_body_list(path, cx, list_state);
+            }
         }
-        if entry.content_type == "link"
-            && let Some(panel) = detail_link_body_list(entry, query, cx, list_state.clone())
-        {
-            return panel;
+        if entry.content_type == "link" {
+            if let Some(panel) = detail_link_body_list(entry, query, cx, list_state.clone()) {
+                return panel;
+            }
         }
     }
 
@@ -955,21 +955,21 @@ fn detail_info_panel(entries: &[Model], selected_index: usize) -> AnyElement {
     ];
 
     if entry.content_type == "link" {
-        if let Some(title) = entry.link_title.as_deref()
-            && !title.trim().is_empty()
-        {
-            items.push(("Title".to_string(), title.to_string()));
+        if let Some(title) = entry.link_title.as_deref() {
+            if !title.trim().is_empty() {
+                items.push(("Title".to_string(), title.to_string()));
+            }
         }
-        if let Some(site_name) = entry.link_site_name.as_deref()
-            && !site_name.trim().is_empty()
-        {
-            items.push(("Site".to_string(), site_name.to_string()));
+        if let Some(site_name) = entry.link_site_name.as_deref() {
+            if !site_name.trim().is_empty() {
+                items.push(("Site".to_string(), site_name.to_string()));
+            }
         }
         let url = entry.link_url.as_deref().or(entry.text_content.as_deref());
-        if let Some(url) = url
-            && !url.trim().is_empty()
-        {
-            items.push(("URL".to_string(), url.to_string()));
+        if let Some(url) = url {
+            if !url.trim().is_empty() {
+                items.push(("URL".to_string(), url.to_string()));
+            }
         }
     }
 
@@ -1019,10 +1019,10 @@ fn detail_body(entries: &[Model], selected_index: usize) -> String {
     if let Some(entry) = entries.get(selected_index) {
         if entry.content_type == "link" {
             let mut lines = Vec::new();
-            if let Some(title) = entry.link_title.as_deref()
-                && !title.trim().is_empty()
-            {
-                lines.push(title.to_string());
+            if let Some(title) = entry.link_title.as_deref() {
+                if !title.trim().is_empty() {
+                    lines.push(title.to_string());
+                }
             }
             let url = entry
                 .link_url
@@ -1032,10 +1032,10 @@ fn detail_body(entries: &[Model], selected_index: usize) -> String {
             if !url.trim().is_empty() {
                 lines.push(url.to_string());
             }
-            if let Some(description) = entry.link_description.as_deref()
-                && !description.trim().is_empty()
-            {
-                lines.push(description.to_string());
+            if let Some(description) = entry.link_description.as_deref() {
+                if !description.trim().is_empty() {
+                    lines.push(description.to_string());
+                }
             }
             if !lines.is_empty() {
                 return lines.join("\n\n");
@@ -1056,10 +1056,10 @@ fn detail_body(entries: &[Model], selected_index: usize) -> String {
 }
 
 fn source_label(entry: &Model) -> String {
-    if let Some(title) = entry.source_app_title.as_deref()
-        && !title.trim().is_empty()
-    {
-        return title.to_string();
+    if let Some(title) = entry.source_app_title.as_deref() {
+        if !title.trim().is_empty() {
+            return title.to_string();
+        }
     }
 
     if let Some(path) = entry.source_exe_path.as_deref() {

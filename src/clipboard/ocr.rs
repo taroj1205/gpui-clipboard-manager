@@ -4,10 +4,10 @@ use anyhow::Result;
 use std::{ptr, slice};
 #[cfg(target_os = "windows")]
 use windows::{
+    core::ComInterface,
     Graphics::Imaging::{BitmapBufferAccessMode, BitmapPixelFormat, SoftwareBitmap},
     Media::Ocr::OcrEngine,
     Win32::System::WinRT::IMemoryBufferByteAccess,
-    core::ComInterface,
 };
 
 pub async fn extract_text_from_image(bytes: &[u8]) -> Result<Option<String>> {
