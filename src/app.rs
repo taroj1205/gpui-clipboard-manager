@@ -1,13 +1,13 @@
 use gpui::{
-    App, AppContext, Application, Bounds, WindowBackgroundAppearance, WindowBounds, WindowKind,
-    WindowOptions, px, size,
+    px, size, App, AppContext, Application, Bounds, WindowBackgroundAppearance, WindowBounds,
+    WindowKind, WindowOptions,
 };
 use gpui_component::Root;
 use gpui_component_assets::Assets;
 
 use crate::clipboard::start_clipboard_history;
 use crate::hotkeys::setup_global_hotkey;
-use crate::ui::popup::{PopupView, bind_popup_keys};
+use crate::ui::popup::{bind_popup_keys, PopupView};
 use std::sync::mpsc;
 
 pub fn run() {
