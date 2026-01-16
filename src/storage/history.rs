@@ -10,13 +10,12 @@ use crate::storage::entity::{Column, Entity, Model};
 use sea_orm_migration::MigratorTrait;
 
 #[cfg(target_os = "windows")]
-use crate::clipboard::ClipboardEntry;
-#[cfg(target_os = "windows")]
-use sea_orm::{ActiveModelTrait, Set};
-#[cfg(target_os = "windows")]
-use std::time::{SystemTime, UNIX_EPOCH};
-#[cfg(target_os = "windows")]
-use crate::storage::entity::ActiveModel;
+use {
+    crate::clipboard::ClipboardEntry,
+    crate::storage::entity::ActiveModel,
+    sea_orm::{ActiveModelTrait, Set},
+    std::time::{SystemTime, UNIX_EPOCH},
+};
 
 pub async fn open_db(path: &Path) -> anyhow::Result<DatabaseConnection> {
     if let Some(parent) = path.parent() {

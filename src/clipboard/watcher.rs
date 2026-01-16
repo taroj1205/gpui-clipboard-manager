@@ -214,6 +214,8 @@ async fn read_clipboard_entry() -> anyhow::Result<Option<ClipboardEntry>> {
 }
 
 #[cfg(target_os = "windows")]
+/// Parameters for building a clipboard entry.
+/// Groups related clipboard content parameters to avoid excessive function arguments.
 struct EntryParams {
     content_type: String,
     content_hash: String,
