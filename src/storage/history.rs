@@ -32,18 +32,6 @@ pub async fn load_last_hash(db: &DatabaseConnection) -> anyhow::Result<Option<St
     Ok(hash)
 }
 
-pub async fn load_recent_entries(
-    db: &DatabaseConnection,
-    limit: u64,
-) -> anyhow::Result<Vec<Model>> {
-    let entries = Entity::find()
-        .order_by_desc(Column::Id)
-        .limit(limit)
-        .all(db)
-        .await?;
-    Ok(entries)
-}
-
 pub async fn load_entries_page(
     db: &DatabaseConnection,
     query: Option<&str>,
@@ -83,41 +71,45 @@ pub async fn load_entries_page(
     Ok(entries)
 }
 
+pub struct ClipboardEntryInput<'a> {
+    pub content_type: &'a str,
+    pub content_hash: &'a str,
+    pub content: &'a str,
+    pub text_content: Option<&'a str>,
+    pub ocr_text: Option<&'a str>,
+    pub image_path: Option<&'a str>,
+    pub file_paths: Option<&'a str>,
+    pub link_url: Option<&'a str>,
+    pub link_title: Option<&'a str>,
+    pub link_description: Option<&'a str>,
+    pub link_site_name: Option<&'a str>,
+    pub source_app_title: Option<&'a str>,
+    pub source_exe_path: Option<&'a str>,
+}
+
 pub async fn insert_clipboard_entry(
     db: &DatabaseConnection,
-    content_type: &str,
-    content_hash: &str,
-    content: &str,
-    text_content: Option<&str>,
-    ocr_text: Option<&str>,
-    image_path: Option<&str>,
-    file_paths: Option<&str>,
-    link_url: Option<&str>,
-    link_title: Option<&str>,
-    link_description: Option<&str>,
-    link_site_name: Option<&str>,
-    source_app_title: Option<&str>,
-    source_exe_path: Option<&str>,
+    input: ClipboardEntryInput<'_>,
 ) -> anyhow::Result<()> {
     let created_at = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs() as i64;
     let model = ActiveModel {
-        content: Set(content.to_string()),
+        content: Set(input.content.to_string()),
         created_at: Set(created_at),
-        content_type: Set(content_type.to_string()),
-        content_hash: Set(content_hash.to_string()),
-        text_content: Set(text_content.map(str::to_string)),
-        ocr_text: Set(ocr_text.map(str::to_string)),
-        image_path: Set(image_path.map(str::to_string)),
-        file_paths: Set(file_paths.map(str::to_string)),
-        link_url: Set(link_url.map(str::to_string)),
-        link_title: Set(link_title.map(str::to_string)),
-        link_description: Set(link_description.map(str::to_string)),
-        link_site_name: Set(link_site_name.map(str::to_string)),
-        source_app_title: Set(source_app_title.map(str::to_string)),
-        source_exe_path: Set(source_exe_path.map(str::to_string)),
+        content_type: Set(input.content_type.to_string()),
+        content_hash: Set(input.content_hash.to_string()),
+        text_content: Set(input.text_content.map(str::to_string)),
+        ocr_text: Set(input.ocr_text.map(str::to_string)),
+        image_path: Set(input.image_path.map(str::to_string)),
+        file_paths: Set(input.file_paths.map(str::to_string)),
+        link_url: Set(input.link_url.map(str::to_string)),
+        link_title: Set(input.link_title.map(str::to_string)),
+        link_description: Set(input.link_description.map(str::to_string)),
+        link_site_name: Set(input.link_site_name.map(str::to_string)),
+        source_app_title: Set(input.source_app_title.map(str::to_string)),
+        source_exe_path: Set(input.source_exe_path.map(str::to_string)),
         ..Default::default()
     };
     model.insert(db).await?;

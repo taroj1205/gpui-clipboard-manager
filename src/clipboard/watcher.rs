@@ -21,7 +21,10 @@ use crate::clipboard::link_metadata::{LinkMetadata, fetch_link_metadata, parse_l
 #[cfg(target_os = "windows")]
 use crate::clipboard::ocr::extract_text_from_image;
 #[cfg(target_os = "windows")]
-use crate::storage::history::{insert_clipboard_entry, load_last_hash, open_db};
+use crate::storage::history::{
+    ClipboardEntryInput as StorageClipboardEntryInput, insert_clipboard_entry, load_last_hash,
+    open_db,
+};
 #[cfg(target_os = "windows")]
 use crate::storage::images::save_image_bytes;
 #[cfg(target_os = "windows")]
@@ -66,19 +69,21 @@ fn start_windows_clipboard_history(cx: &mut App, update_tx: Sender<()>) -> anyho
                     if last_hash.as_deref() != Some(entry.content_hash.as_str()) {
                         if let Err(err) = insert_clipboard_entry(
                             &db,
-                            &entry.content_type,
-                            &entry.content_hash,
-                            &entry.content,
-                            entry.text_content.as_deref(),
-                            entry.ocr_text.as_deref(),
-                            entry.image_path.as_deref(),
-                            entry.file_paths.as_deref(),
-                            entry.link_url.as_deref(),
-                            entry.link_title.as_deref(),
-                            entry.link_description.as_deref(),
-                            entry.link_site_name.as_deref(),
-                            entry.source_app_title.as_deref(),
-                            entry.source_exe_path.as_deref(),
+                            StorageClipboardEntryInput {
+                                content_type: &entry.content_type,
+                                content_hash: &entry.content_hash,
+                                content: &entry.content,
+                                text_content: entry.text_content.as_deref(),
+                                ocr_text: entry.ocr_text.as_deref(),
+                                image_path: entry.image_path.as_deref(),
+                                file_paths: entry.file_paths.as_deref(),
+                                link_url: entry.link_url.as_deref(),
+                                link_title: entry.link_title.as_deref(),
+                                link_description: entry.link_description.as_deref(),
+                                link_site_name: entry.link_site_name.as_deref(),
+                                source_app_title: entry.source_app_title.as_deref(),
+                                source_exe_path: entry.source_exe_path.as_deref(),
+                            },
                         )
                         .await
                         {
@@ -123,6 +128,18 @@ struct ClipboardEntry {
 }
 
 #[cfg(target_os = "windows")]
+struct ClipboardEntryInput {
+    content_type: String,
+    content_hash: String,
+    content: String,
+    text_content: Option<String>,
+    ocr_text: Option<String>,
+    image_path: Option<String>,
+    file_paths: Option<String>,
+    link_metadata: Option<LinkMetadata>,
+}
+
+#[cfg(target_os = "windows")]
 async fn read_clipboard_entry() -> anyhow::Result<Option<ClipboardEntry>> {
     let _clip = Clipboard::new_attempts(10)
         .map_err(|err| anyhow::anyhow!("Clipboard open failed: {err}"))?;
@@ -136,16 +153,16 @@ async fn read_clipboard_entry() -> anyhow::Result<Option<ClipboardEntry>> {
             let file_paths = serde_json::to_string(&files)?;
             let content_hash = hash_bytes(file_paths.as_bytes());
             let content = summarize_file_paths(&files);
-            return Ok(Some(build_entry(
-                "files",
+            return Ok(Some(build_entry(ClipboardEntryInput {
+                content_type: "files".to_string(),
                 content_hash,
                 content,
-                None,
-                None,
-                None,
-                Some(file_paths),
-                None,
-            )));
+                text_content: None,
+                ocr_text: None,
+                image_path: None,
+                file_paths: Some(file_paths),
+                link_metadata: None,
+            })));
         }
     }
 
@@ -164,16 +181,16 @@ async fn read_clipboard_entry() -> anyhow::Result<Option<ClipboardEntry>> {
                     None
                 }
             };
-            return Ok(Some(build_entry(
-                "image",
+            return Ok(Some(build_entry(ClipboardEntryInput {
+                content_type: "image".to_string(),
                 content_hash,
-                "Image".to_string(),
-                None,
+                content: "Image".to_string(),
+                text_content: None,
                 ocr_text,
-                Some(image_path.to_string_lossy().to_string()),
-                None,
-                None,
-            )));
+                image_path: Some(image_path.to_string_lossy().to_string()),
+                file_paths: None,
+                link_metadata: None,
+            })));
         }
     }
 
@@ -201,27 +218,27 @@ async fn read_clipboard_entry() -> anyhow::Result<Option<ClipboardEntry>> {
                         site_name: None,
                     });
                 }
-                return Ok(Some(build_entry(
-                    "link",
+                return Ok(Some(build_entry(ClipboardEntryInput {
+                    content_type: "link".to_string(),
                     content_hash,
-                    trimmed.to_string(),
-                    Some(trimmed.to_string()),
-                    None,
-                    None,
-                    None,
+                    content: trimmed.to_string(),
+                    text_content: Some(trimmed.to_string()),
+                    ocr_text: None,
+                    image_path: None,
+                    file_paths: None,
                     link_metadata,
-                )));
+                })));
             }
-            return Ok(Some(build_entry(
-                "text",
+            return Ok(Some(build_entry(ClipboardEntryInput {
+                content_type: "text".to_string(),
                 content_hash,
-                trimmed.to_string(),
-                Some(trimmed.to_string()),
-                None,
-                None,
-                None,
-                None,
-            )));
+                content: trimmed.to_string(),
+                text_content: Some(trimmed.to_string()),
+                ocr_text: None,
+                image_path: None,
+                file_paths: None,
+                link_metadata: None,
+            })));
         }
     }
 
@@ -229,16 +246,17 @@ async fn read_clipboard_entry() -> anyhow::Result<Option<ClipboardEntry>> {
 }
 
 #[cfg(target_os = "windows")]
-fn build_entry(
-    content_type: &str,
-    content_hash: String,
-    content: String,
-    text_content: Option<String>,
-    ocr_text: Option<String>,
-    image_path: Option<String>,
-    file_paths: Option<String>,
-    link_metadata: Option<LinkMetadata>,
-) -> ClipboardEntry {
+fn build_entry(input: ClipboardEntryInput) -> ClipboardEntry {
+    let ClipboardEntryInput {
+        content_type,
+        content_hash,
+        content,
+        text_content,
+        ocr_text,
+        image_path,
+        file_paths,
+        link_metadata,
+    } = input;
     let (source_app_title, source_exe_path) = active_window_source();
     let (link_url, link_title, link_description, link_site_name) = match link_metadata {
         Some(metadata) => (
@@ -250,7 +268,7 @@ fn build_entry(
         None => (None, None, None, None),
     };
     ClipboardEntry {
-        content_type: content_type.to_string(),
+        content_type,
         content_hash,
         content,
         text_content,
@@ -269,7 +287,7 @@ fn build_entry(
 #[cfg(target_os = "windows")]
 fn active_window_source() -> (Option<String>, Option<String>) {
     let hwnd = unsafe { GetForegroundWindow() };
-    if hwnd == std::ptr::null_mut() {
+    if hwnd.is_null() {
         return (None, None);
     }
 
@@ -312,7 +330,7 @@ fn active_window_exe_path(hwnd: HWND) -> Option<String> {
     }
 
     let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
-    if handle == std::ptr::null_mut() {
+    if handle.is_null() {
         return None;
     }
 
