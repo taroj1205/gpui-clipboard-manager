@@ -7,26 +7,56 @@ on:
     branches: [main]
 
 jobs:
-  test-build:
+  build:
+    name: Build
     runs-on: windows-latest
-    
+
     steps:
-      - uses: actions/checkout@v4
-      
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-      
+
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
-      
+
       - name: Build
         run: cargo build --verbose
-      
+
+  test:
+    name: Test
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
       - name: Run tests
         run: cargo test --verbose
-      
+
+  lint:
+    name: Lint
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
       - name: Check formatting
         run: cargo fmt -- --check
-      
+
       - name: Clippy lints
         run: cargo clippy -- -D warnings
