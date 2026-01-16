@@ -2,14 +2,16 @@
 use global_hotkey::hotkey::{Code, HotKey, Modifiers};
 #[cfg(not(target_os = "windows"))]
 use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState};
-use gpui::{App, WindowHandle};
+use gpui::{App, Global, WindowHandle};
 use std::sync::mpsc;
 use std::time::Duration;
 
 use crate::ui::popup::PopupView;
 
 #[cfg(not(target_os = "windows"))]
-const HOTKEY_MODS: Modifiers = Modifiers::ALT | Modifiers::SHIFT;
+fn hotkey_mods() -> Modifiers {
+    Modifiers::ALT | Modifiers::SHIFT
+}
 #[cfg(not(target_os = "windows"))]
 const HOTKEY_KEY: Code = Code::KeyV;
 
@@ -38,7 +40,7 @@ pub fn setup_global_hotkey(cx: &mut App, handle: WindowHandle<PopupView>) -> any
             }
         }));
 
-        let hotkey = HotKey::new(Some(HOTKEY_MODS), HOTKEY_KEY);
+        let hotkey = HotKey::new(Some(hotkey_mods()), HOTKEY_KEY);
         let manager = GlobalHotKeyManager::new()?;
         manager.register(hotkey)?;
         cx.set_global(HotKeyRegistration {

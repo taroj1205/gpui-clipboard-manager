@@ -1,5 +1,4 @@
 use gpui::App;
-use std::time::Duration;
 
 #[cfg(target_os = "windows")]
 use clipboard_win::{Clipboard, Format, Getter, formats};
@@ -30,7 +29,10 @@ use std::sync::mpsc::Sender;
 
 pub fn start_clipboard_history(cx: &mut App, update_tx: Sender<()>) {
     #[cfg(not(target_os = "windows"))]
-    let _ = update_tx;
+    {
+        let _ = cx;
+        let _ = update_tx;
+    }
 
     #[cfg(target_os = "windows")]
     {
@@ -64,24 +66,7 @@ fn start_windows_clipboard_history(cx: &mut App, update_tx: Sender<()>) -> anyho
             match read_clipboard_entry().await {
                 Ok(Some(entry)) => {
                     if last_hash.as_deref() != Some(entry.content_hash.as_str()) {
-                        if let Err(err) = insert_clipboard_entry(
-                            &db,
-                            &entry.content_type,
-                            &entry.content_hash,
-                            &entry.content,
-                            entry.text_content.as_deref(),
-                            entry.ocr_text.as_deref(),
-                            entry.image_path.as_deref(),
-                            entry.file_paths.as_deref(),
-                            entry.link_url.as_deref(),
-                            entry.link_title.as_deref(),
-                            entry.link_description.as_deref(),
-                            entry.link_site_name.as_deref(),
-                            entry.source_app_title.as_deref(),
-                            entry.source_exe_path.as_deref(),
-                        )
-                        .await
-                        {
+                        if let Err(err) = insert_clipboard_entry(&db, &entry).await {
                             eprintln!("Failed to write clipboard entry: {err}");
                         } else {
                             last_hash = Some(entry.content_hash);
@@ -106,7 +91,7 @@ fn start_windows_clipboard_history(cx: &mut App, update_tx: Sender<()>) -> anyho
 }
 
 #[cfg(target_os = "windows")]
-struct ClipboardEntry {
+pub struct ClipboardEntry {
     content_type: String,
     content_hash: String,
     content: String,
@@ -136,16 +121,16 @@ async fn read_clipboard_entry() -> anyhow::Result<Option<ClipboardEntry>> {
             let file_paths = serde_json::to_string(&files)?;
             let content_hash = hash_bytes(file_paths.as_bytes());
             let content = summarize_file_paths(&files);
-            return Ok(Some(build_entry(
-                "files",
+            return Ok(Some(build_entry(EntryParams {
+                content_type: "files".to_string(),
                 content_hash,
                 content,
-                None,
-                None,
-                None,
-                Some(file_paths),
-                None,
-            )));
+                text_content: None,
+                ocr_text: None,
+                image_path: None,
+                file_paths: Some(file_paths),
+                link_metadata: None,
+            })));
         }
     }
 
@@ -164,16 +149,16 @@ async fn read_clipboard_entry() -> anyhow::Result<Option<ClipboardEntry>> {
                     None
                 }
             };
-            return Ok(Some(build_entry(
-                "image",
+            return Ok(Some(build_entry(EntryParams {
+                content_type: "image".to_string(),
                 content_hash,
-                "Image".to_string(),
-                None,
+                content: "Image".to_string(),
+                text_content: None,
                 ocr_text,
-                Some(image_path.to_string_lossy().to_string()),
-                None,
-                None,
-            )));
+                image_path: Some(image_path.to_string_lossy().to_string()),
+                file_paths: None,
+                link_metadata: None,
+            })));
         }
     }
 
@@ -201,27 +186,27 @@ async fn read_clipboard_entry() -> anyhow::Result<Option<ClipboardEntry>> {
                         site_name: None,
                     });
                 }
-                return Ok(Some(build_entry(
-                    "link",
+                return Ok(Some(build_entry(EntryParams {
+                    content_type: "link".to_string(),
                     content_hash,
-                    trimmed.to_string(),
-                    Some(trimmed.to_string()),
-                    None,
-                    None,
-                    None,
+                    content: trimmed.to_string(),
+                    text_content: Some(trimmed.to_string()),
+                    ocr_text: None,
+                    image_path: None,
+                    file_paths: None,
                     link_metadata,
-                )));
+                })));
             }
-            return Ok(Some(build_entry(
-                "text",
+            return Ok(Some(build_entry(EntryParams {
+                content_type: "text".to_string(),
                 content_hash,
-                trimmed.to_string(),
-                Some(trimmed.to_string()),
-                None,
-                None,
-                None,
-                None,
-            )));
+                content: trimmed.to_string(),
+                text_content: Some(trimmed.to_string()),
+                ocr_text: None,
+                image_path: None,
+                file_paths: None,
+                link_metadata: None,
+            })));
         }
     }
 
@@ -229,8 +214,8 @@ async fn read_clipboard_entry() -> anyhow::Result<Option<ClipboardEntry>> {
 }
 
 #[cfg(target_os = "windows")]
-fn build_entry(
-    content_type: &str,
+struct EntryParams {
+    content_type: String,
     content_hash: String,
     content: String,
     text_content: Option<String>,
@@ -238,9 +223,12 @@ fn build_entry(
     image_path: Option<String>,
     file_paths: Option<String>,
     link_metadata: Option<LinkMetadata>,
-) -> ClipboardEntry {
+}
+
+#[cfg(target_os = "windows")]
+fn build_entry(params: EntryParams) -> ClipboardEntry {
     let (source_app_title, source_exe_path) = active_window_source();
-    let (link_url, link_title, link_description, link_site_name) = match link_metadata {
+    let (link_url, link_title, link_description, link_site_name) = match params.link_metadata {
         Some(metadata) => (
             Some(metadata.url),
             metadata.title,
@@ -250,13 +238,13 @@ fn build_entry(
         None => (None, None, None, None),
     };
     ClipboardEntry {
-        content_type: content_type.to_string(),
-        content_hash,
-        content,
-        text_content,
-        ocr_text,
-        image_path,
-        file_paths,
+        content_type: params.content_type,
+        content_hash: params.content_hash,
+        content: params.content,
+        text_content: params.text_content,
+        ocr_text: params.ocr_text,
+        image_path: params.image_path,
+        file_paths: params.file_paths,
         link_url,
         link_title,
         link_description,
@@ -269,7 +257,7 @@ fn build_entry(
 #[cfg(target_os = "windows")]
 fn active_window_source() -> (Option<String>, Option<String>) {
     let hwnd = unsafe { GetForegroundWindow() };
-    if hwnd == std::ptr::null_mut() {
+    if hwnd.is_null() {
         return (None, None);
     }
 
@@ -312,7 +300,7 @@ fn active_window_exe_path(hwnd: HWND) -> Option<String> {
     }
 
     let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
-    if handle == std::ptr::null_mut() {
+    if handle.is_null() {
         return None;
     }
 

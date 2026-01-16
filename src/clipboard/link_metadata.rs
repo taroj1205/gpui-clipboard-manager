@@ -1,10 +1,16 @@
+#[cfg(target_os = "windows")]
 use std::time::Duration;
 
+#[cfg(target_os = "windows")]
 use anyhow::{Result, anyhow};
+#[cfg(target_os = "windows")]
 use async_std::future::timeout;
+#[cfg(target_os = "windows")]
 use scraper::{Html, Selector};
+#[cfg(target_os = "windows")]
 use url::Url;
 
+#[cfg(target_os = "windows")]
 #[derive(Clone, Debug)]
 pub struct LinkMetadata {
     pub url: String,
@@ -13,6 +19,7 @@ pub struct LinkMetadata {
     pub site_name: Option<String>,
 }
 
+#[cfg(target_os = "windows")]
 pub fn parse_link_url(text: &str) -> Option<Url> {
     let trimmed = text.trim();
     if trimmed.is_empty() {
@@ -25,6 +32,7 @@ pub fn parse_link_url(text: &str) -> Option<Url> {
     }
 }
 
+#[cfg(target_os = "windows")]
 pub async fn fetch_link_metadata(url: &Url) -> Result<Option<LinkMetadata>> {
     let body = match timeout(Duration::from_secs(8), fetch_body(url)).await {
         Ok(Ok(body)) => body,
@@ -48,6 +56,7 @@ pub async fn fetch_link_metadata(url: &Url) -> Result<Option<LinkMetadata>> {
     }))
 }
 
+#[cfg(target_os = "windows")]
 async fn fetch_body(url: &Url) -> Result<String> {
     let mut response = surf::get(url.as_str())
         .header("User-Agent", "gpui-clipboard-manager/0.1")
@@ -62,6 +71,7 @@ async fn fetch_body(url: &Url) -> Result<String> {
         .map_err(|err| anyhow!(err.to_string()))
 }
 
+#[cfg(target_os = "windows")]
 fn title_text(document: &Html) -> Option<String> {
     let selector = Selector::parse("title").ok()?;
     let title = document
@@ -76,6 +86,7 @@ fn title_text(document: &Html) -> Option<String> {
     }
 }
 
+#[cfg(target_os = "windows")]
 fn meta_content(document: &Html, selector: &str) -> Option<String> {
     let selector = Selector::parse(selector).ok()?;
     let value = document

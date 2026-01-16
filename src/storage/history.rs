@@ -1,14 +1,22 @@
 use std::path::Path;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Condition, ConnectOptions, Database, DatabaseConnection,
-    EntityTrait, QueryFilter, QueryOrder, QuerySelect, Set,
+    ColumnTrait, Condition, ConnectOptions, Database, DatabaseConnection,
+    EntityTrait, QueryFilter, QueryOrder, QuerySelect,
 };
 
 use crate::migration::Migrator;
-use crate::storage::entity::{ActiveModel, Column, Entity, Model};
+use crate::storage::entity::{Column, Entity, Model};
 use sea_orm_migration::MigratorTrait;
+
+#[cfg(target_os = "windows")]
+use crate::clipboard::ClipboardEntry;
+#[cfg(target_os = "windows")]
+use sea_orm::{ActiveModelTrait, Set};
+#[cfg(target_os = "windows")]
+use std::time::{SystemTime, UNIX_EPOCH};
+#[cfg(target_os = "windows")]
+use crate::storage::entity::ActiveModel;
 
 pub async fn open_db(path: &Path) -> anyhow::Result<DatabaseConnection> {
     if let Some(parent) = path.parent() {
@@ -21,6 +29,7 @@ pub async fn open_db(path: &Path) -> anyhow::Result<DatabaseConnection> {
     Ok(db)
 }
 
+#[cfg(target_os = "windows")]
 pub async fn load_last_hash(db: &DatabaseConnection) -> anyhow::Result<Option<String>> {
     let hash = Entity::find()
         .select_only()
@@ -30,18 +39,6 @@ pub async fn load_last_hash(db: &DatabaseConnection) -> anyhow::Result<Option<St
         .one(db)
         .await?;
     Ok(hash)
-}
-
-pub async fn load_recent_entries(
-    db: &DatabaseConnection,
-    limit: u64,
-) -> anyhow::Result<Vec<Model>> {
-    let entries = Entity::find()
-        .order_by_desc(Column::Id)
-        .limit(limit)
-        .all(db)
-        .await?;
-    Ok(entries)
 }
 
 pub async fn load_entries_page(
@@ -83,41 +80,30 @@ pub async fn load_entries_page(
     Ok(entries)
 }
 
+#[cfg(target_os = "windows")]
 pub async fn insert_clipboard_entry(
     db: &DatabaseConnection,
-    content_type: &str,
-    content_hash: &str,
-    content: &str,
-    text_content: Option<&str>,
-    ocr_text: Option<&str>,
-    image_path: Option<&str>,
-    file_paths: Option<&str>,
-    link_url: Option<&str>,
-    link_title: Option<&str>,
-    link_description: Option<&str>,
-    link_site_name: Option<&str>,
-    source_app_title: Option<&str>,
-    source_exe_path: Option<&str>,
+    entry: &ClipboardEntry,
 ) -> anyhow::Result<()> {
     let created_at = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs() as i64;
     let model = ActiveModel {
-        content: Set(content.to_string()),
+        content: Set(entry.content.clone()),
         created_at: Set(created_at),
-        content_type: Set(content_type.to_string()),
-        content_hash: Set(content_hash.to_string()),
-        text_content: Set(text_content.map(str::to_string)),
-        ocr_text: Set(ocr_text.map(str::to_string)),
-        image_path: Set(image_path.map(str::to_string)),
-        file_paths: Set(file_paths.map(str::to_string)),
-        link_url: Set(link_url.map(str::to_string)),
-        link_title: Set(link_title.map(str::to_string)),
-        link_description: Set(link_description.map(str::to_string)),
-        link_site_name: Set(link_site_name.map(str::to_string)),
-        source_app_title: Set(source_app_title.map(str::to_string)),
-        source_exe_path: Set(source_exe_path.map(str::to_string)),
+        content_type: Set(entry.content_type.clone()),
+        content_hash: Set(entry.content_hash.clone()),
+        text_content: Set(entry.text_content.clone()),
+        ocr_text: Set(entry.ocr_text.clone()),
+        image_path: Set(entry.image_path.clone()),
+        file_paths: Set(entry.file_paths.clone()),
+        link_url: Set(entry.link_url.clone()),
+        link_title: Set(entry.link_title.clone()),
+        link_description: Set(entry.link_description.clone()),
+        link_site_name: Set(entry.link_site_name.clone()),
+        source_app_title: Set(entry.source_app_title.clone()),
+        source_exe_path: Set(entry.source_exe_path.clone()),
         ..Default::default()
     };
     model.insert(db).await?;

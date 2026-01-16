@@ -1,3 +1,4 @@
+#[cfg(target_os = "windows")]
 use anyhow::Result;
 
 #[cfg(target_os = "windows")]
@@ -10,6 +11,7 @@ use windows::{
     core::ComInterface,
 };
 
+#[cfg(target_os = "windows")]
 pub async fn extract_text_from_image(bytes: &[u8]) -> Result<Option<String>> {
     #[cfg(target_os = "windows")]
     {
