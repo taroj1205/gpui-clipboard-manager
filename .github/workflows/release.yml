@@ -29,6 +29,11 @@ jobs:
       - if: steps.release.outputs.release_created == 'true'
         run: cargo install cargo-wix
       - if: steps.release.outputs.release_created == 'true'
+        run: choco install wixtoolset -y --no-progress
+      - if: steps.release.outputs.release_created == 'true'
+        run: |
+          "C:\Program Files (x86)\WiX Toolset v3.11\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - if: steps.release.outputs.release_created == 'true'
         run: cargo wix
       - if: steps.release.outputs.release_created == 'true'
         run: mv target/release/gpui-clipboard-manager.exe gpui-clipboard-manager-${{ steps.release.outputs.tag_name }}.exe
