@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.3](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.7.2...gpui-clipboard-manager-v0.7.3) (2026-01-16)
+
+
+### Bug Fixes
+
+* **subsystem:** update subsystem to windows ([f07d2c7](https://github.com/taroj1205/gpui-clipboard-manager/commit/f07d2c7460f631780ae540ae3d0b7b515a49def1))
+
 ## [0.7.2](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.7.1...gpui-clipboard-manager-v0.7.2) (2026-01-16)
 
 

@@ -2936,7 +2936,7 @@ dependencies = [
 
 [[package]]
 name = "gpui-clipboard-manager"
-version = "0.7.2"
+version = "0.7.3"
 dependencies = [
  "anyhow",
  "async-std",
