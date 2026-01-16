@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.0](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.7.3...gpui-clipboard-manager-v0.8.0) (2026-01-16)
+
+
+### Features
+
+* add Windows MSI installer support ([#19](https://github.com/taroj1205/gpui-clipboard-manager/issues/19)) ([d7788ef](https://github.com/taroj1205/gpui-clipboard-manager/commit/d7788efd749830729972a3bcd77f24b7095482ca))
+* **gpui-component:** add gpui-component ([#17](https://github.com/taroj1205/gpui-clipboard-manager/issues/17)) ([67c2a47](https://github.com/taroj1205/gpui-clipboard-manager/commit/67c2a47bc8d880301acc6ac736cd80cd5e8d272e))
+
 ## [0.7.3](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.7.2...gpui-clipboard-manager-v0.7.3) (2026-01-16)
 
 
