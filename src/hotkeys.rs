@@ -3,6 +3,7 @@ use global_hotkey::hotkey::{Code, HotKey, Modifiers};
 #[cfg(not(target_os = "windows"))]
 use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState};
 use gpui::{App, WindowHandle};
+use gpui_component::Root;
 use std::sync::mpsc;
 use std::time::Duration;
 
@@ -22,7 +23,7 @@ struct HotKeyRegistration {
 #[cfg(not(target_os = "windows"))]
 impl Global for HotKeyRegistration {}
 
-pub fn setup_global_hotkey(cx: &mut App, handle: WindowHandle<PopupView>) -> anyhow::Result<()> {
+pub fn setup_global_hotkey(cx: &mut App, handle: WindowHandle<Root>) -> anyhow::Result<()> {
     let (event_tx, event_rx) = mpsc::channel::<()>();
 
     #[cfg(target_os = "windows")]
@@ -53,8 +54,12 @@ pub fn setup_global_hotkey(cx: &mut App, handle: WindowHandle<PopupView>) -> any
                 let _ = cx.update(|cx| {
                     cx.activate(true);
                     let window = handle;
-                    let _ = window.update(cx, |view, window, cx| {
-                        view.toggle_visible(window, cx);
+                    let _ = window.update(cx, |root, window, cx| {
+                        if let Ok(view) = root.view().clone().downcast::<PopupView>() {
+                            view.update(cx, |view, cx| {
+                                view.toggle_visible(window, cx);
+                            });
+                        }
                     });
                 });
             }

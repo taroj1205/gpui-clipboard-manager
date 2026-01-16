@@ -2,17 +2,19 @@ use gpui::{
     App, AppContext, Application, Bounds, WindowBackgroundAppearance, WindowBounds, WindowKind,
     WindowOptions, px, size,
 };
+use gpui_component::Root;
+use gpui_component_assets::Assets;
 
 use crate::clipboard::start_clipboard_history;
 use crate::hotkeys::setup_global_hotkey;
 use crate::ui::popup::{PopupView, bind_popup_keys};
-use crate::ui::text_input::bind_text_input_keys;
 use std::sync::mpsc;
 
 pub fn run() {
-    Application::new().run(|cx: &mut App| {
+    Application::new().with_assets(Assets).run(|cx: &mut App| {
+        gpui_component::init(cx);
+
         let bounds = Bounds::centered(None, size(px(750.), px(500.0)), cx);
-        bind_text_input_keys(cx);
         bind_popup_keys(cx);
         let (clipboard_tx, clipboard_rx) = mpsc::channel();
         start_clipboard_history(cx, clipboard_tx);
@@ -27,7 +29,10 @@ pub fn run() {
                     is_minimizable: false,
                     ..Default::default()
                 },
-                move |window, cx| cx.new(|cx| PopupView::new(window, cx, clipboard_rx)),
+                move |window, cx| {
+                    let view = cx.new(|cx| PopupView::new(window, cx, clipboard_rx));
+                    cx.new(|cx| Root::new(view, window, cx))
+                },
             )
             .unwrap();
 
