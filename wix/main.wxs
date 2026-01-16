@@ -1,19 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-  <Product Id="*" Name="gpui-clipboard-manager" Version="0.7.3" Language="1033" Manufacturer="gpui-clipboard-manager" UpgradeCode="12345678-1234-1234-1234-123456789012">
+  <Product Id="*"
+           Name="!(bind.FileVersion.ExeFile)"
+           Language="1033"
+           Version="!(bind.FileVersion.ExeFile)"
+           Manufacturer="gpui-clipboard-manager"
+           UpgradeCode="12345678-1234-1234-1234-123456789012">
     <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
     <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
-    <MediaTemplate />
-    <Feature Id="ProductFeature" Title="gpui-clipboard-manager" Level="1">
+    <MediaTemplate EmbedCab="yes" />
+    <Feature Id="ProductFeature" Title="!(bind.FileVersion.ExeFile)" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
     </Feature>
   </Product>
   <Fragment>
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFiles64Folder">
-        <Directory Id="INSTALLDIR" Name="gpui-clipboard-manager">
-          <Component Id="ProductComponent" Guid="87654321-4321-4321-4321-210987654321">
-            <File Id="ExeFile" Source="target\release\gpui-clipboard-manager.exe" />
+        <Directory Id="INSTALLDIR" Name="!(bind.FileVersion.ExeFile)">
+          <Component Id="ProductComponent" Guid="*">
+            <File Id="ExeFile" Source="$(var.CargoTargetBinDir)\$(var.CargoTargetFileName)" KeyPath="yes" />
           </Component>
         </Directory>
       </Directory>
