@@ -7,7 +7,6 @@ use gpui::{
 };
 use gpui_component::{
     Icon, IconName, Sizable,
-    description_list::{DescriptionItem, DescriptionList},
     input::{Input, InputState},
 };
 use sea_orm::DatabaseConnection;
@@ -64,8 +63,11 @@ impl PopupView {
             view.hide(window, cx);
         })
         .detach();
-        let search_input =
-            cx.new(|cx| InputState::new(window, cx).placeholder("Search clipboard...").clean_on_escape());
+        let search_input = cx.new(|cx| {
+            InputState::new(window, cx)
+                .placeholder("Search clipboard...")
+                .clean_on_escape()
+        });
         let view = Self {
             is_visible: true,
             search_input,
@@ -580,6 +582,7 @@ impl Render for PopupView {
                             .flex_1()
                             .flex()
                             .flex_col()
+                            .justify_between()
                             .gap_3()
                             .child(div().flex_1().px_1().text_color(rgb(0xf1f5f9)).child(
                                 detail_body_list(
@@ -947,44 +950,68 @@ fn detail_info_panel(entries: &[Model], selected_index: usize) -> AnyElement {
     let (characters, words) = entry_metrics(entry);
 
     let mut items = vec![
-        DescriptionItem::new("Source").value(source),
-        DescriptionItem::new("Type").value(content_type),
+        ("Source".to_string(), source),
+        ("Type".to_string(), content_type),
     ];
 
     if entry.content_type == "link" {
         if let Some(title) = entry.link_title.as_deref()
             && !title.trim().is_empty()
         {
-            items.push(DescriptionItem::new("Title").value(title.to_string()));
+            items.push(("Title".to_string(), title.to_string()));
         }
         if let Some(site_name) = entry.link_site_name.as_deref()
             && !site_name.trim().is_empty()
         {
-            items.push(DescriptionItem::new("Site").value(site_name.to_string()));
+            items.push(("Site".to_string(), site_name.to_string()));
         }
         let url = entry.link_url.as_deref().or(entry.text_content.as_deref());
         if let Some(url) = url
             && !url.trim().is_empty()
         {
-            items.push(DescriptionItem::new("URL").value(url.to_string()));
+            items.push(("URL".to_string(), url.to_string()));
         }
     }
 
-    items.push(DescriptionItem::new("Characters").value(characters.to_string()));
-    items.push(DescriptionItem::new("Words").value(words.to_string()));
+    items.push(("Characters".to_string(), characters.to_string()));
+    items.push(("Words".to_string(), words.to_string()));
+
+    let mut list = div().flex().flex_col().gap_1();
+    let item_count = items.len();
+    for (index, (label, value)) in items.into_iter().enumerate() {
+        list = list.child(
+            div()
+                .flex()
+                .items_start()
+                .justify_between()
+                .gap_2()
+                .text_xs()
+                .child(div().text_color(rgb(0xb6c0cb)).child(label))
+                .child(
+                    div()
+                        .max_w(px(400.))
+                        .text_color(rgb(0xf1f5f9))
+                        .text_ellipsis()
+                        .child(value),
+                ),
+        );
+        if index + 1 < item_count {
+            list = list.child(div().h(px(1.)).bg(rgba(0xffffff12)));
+        }
+    }
 
     div()
         .px_1()
         .flex()
         .flex_col()
         .gap_1()
-        .child(div().text_color(rgb(0xf1f5f9)).child("Information"))
         .child(
-            DescriptionList::vertical()
-                .small()
-                .bordered(false)
-                .children(items),
+            div()
+                .text_color(rgb(0xf1f5f9))
+                .child("Information")
+                .text_xs(),
         )
+        .child(list)
         .into_any_element()
 }
 
