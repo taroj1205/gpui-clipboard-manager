@@ -8,7 +8,7 @@ use gpui::{
 use gpui_component::{
     input::{Input, InputState},
     menu::{ContextMenuExt, PopupMenuItem},
-    Icon, IconName, Sizable, WindowExt,
+    Icon, IconName, Root, Sizable, WindowExt,
 };
 use sea_orm::DatabaseConnection;
 use std::path::PathBuf;
@@ -290,10 +290,12 @@ impl PopupView {
             .to_string()
     }
 
-    fn delete_entry(&mut self, id: i32, cx: &mut Context<Self>) {
+    fn delete_entry(&mut self, id: i32, content_hash: String, cx: &mut Context<Self>) {
         let Some(db) = self.db.clone() else {
             return;
         };
+
+        ignore_next_hash(content_hash);
 
         cx.spawn(
             move |view: gpui::WeakEntity<PopupView>, cx: &mut gpui::AsyncApp| {
@@ -579,8 +581,9 @@ impl Render for PopupView {
                 .on_action(cx.listener(Self::on_toggle_action));
         }
 
-        let root = div()
+        let mut root = div()
             .size_full()
+            .relative()
             .flex()
             .flex_col()
             .gap_1()
@@ -654,6 +657,9 @@ impl Render for PopupView {
             );
 
         self.maybe_load_more(cx);
+        if let Some(dialog_layer) = Root::render_dialog_layer(window, cx) {
+            root = root.child(div().absolute().size_full().child(dialog_layer));
+        }
         root
     }
 }
@@ -709,6 +715,7 @@ fn history_list(
                 };
                 let text_color = rgb(0xd2d8df);
                 let entry_id = entry.id;
+                let entry_hash = entry.content_hash.clone();
                 let mut item = div()
                     .id(index)
                     .rounded_md()
@@ -729,37 +736,43 @@ fn history_list(
                     item = item.hover(|style| style.bg(rgba(0x31313150)));
                 }
                 let view_handle = view_handle.clone();
-                let item = item.context_menu(move |menu, _window, _cx| {
+                let item = item.context_menu(move |menu, window, _cx| {
                     let view_handle = view_handle.clone();
-                    menu.item(PopupMenuItem::new("Copy").on_click({
-                        let view_handle = view_handle.clone();
-                        move |_, _, cx| {
-                            view_handle.update(cx, |view, cx| {
-                                view.copy_entry_by_id(entry_id, cx);
-                            });
-                        }
-                    }))
+                    let delete_listener_handle = view_handle.clone();
+                    let delete_action_handle = view_handle.clone();
+                    menu.item(PopupMenuItem::new("Copy").on_click(window.listener_for(
+                        &view_handle,
+                        move |view, _, _, cx| {
+                            view.copy_entry_by_id(entry_id, cx);
+                        },
+                    )))
                     .separator()
-                    .item(PopupMenuItem::new("Delete").on_click({
-                        let view_handle = view_handle.clone();
-                        move |_, window, cx| {
-                            let view_handle = view_handle.clone();
-                            window.open_dialog(cx, move |dialog, _, _| {
-                                let view_handle = view_handle.clone();
-                                dialog
-                                    .title("Delete entry")
-                                    .confirm()
-                                    .child("Delete this clipboard entry?")
-                                    .on_ok(move |_, _, cx| {
-                                        view_handle.update(cx, |view, cx| {
-                                            view.delete_entry(entry_id, cx);
-                                        });
-                                        true
-                                    })
-                                    .on_cancel(|_, _, _| true)
-                            });
-                        }
-                    }))
+                    .item(PopupMenuItem::new("Delete").on_click(window.listener_for(
+                        &delete_listener_handle,
+                        {
+                            let entry_hash = entry_hash.clone();
+                            move |_view, _, window, cx| {
+                                let delete_action_handle = delete_action_handle.clone();
+                                let entry_hash = entry_hash.clone();
+                                window.open_dialog(cx, move |dialog, _, _| {
+                                    let delete_action_handle = delete_action_handle.clone();
+                                    let entry_hash = entry_hash.clone();
+                                    dialog
+                                        .title("Delete entry")
+                                        .confirm()
+                                        .child("Delete this clipboard entry?")
+                                        .on_ok(move |_, _, cx| {
+                                            let entry_hash = entry_hash.clone();
+                                            delete_action_handle.update(cx, |view, cx| {
+                                                view.delete_entry(entry_id, entry_hash, cx);
+                                            });
+                                            true
+                                        })
+                                        .on_cancel(|_, _, _| true)
+                                });
+                            }
+                        },
+                    )))
                 });
                 let query = view.search_query.clone();
                 let preview_text = history_preview_text(entry);

@@ -85,32 +85,30 @@ fn start_windows_clipboard_history(cx: &mut App, update_tx: Sender<()>) -> anyho
 
                         if ignore_hash.as_deref() == Some(entry.content_hash.as_str()) {
                             last_hash = Some(entry.content_hash);
+                        } else if let Err(err) = insert_clipboard_entry(
+                            &db,
+                            StorageClipboardEntryInput {
+                                content_type: &entry.content_type,
+                                content_hash: &entry.content_hash,
+                                content: &entry.content,
+                                text_content: entry.text_content.as_deref(),
+                                ocr_text: entry.ocr_text.as_deref(),
+                                image_path: entry.image_path.as_deref(),
+                                file_paths: entry.file_paths.as_deref(),
+                                link_url: entry.link_url.as_deref(),
+                                link_title: entry.link_title.as_deref(),
+                                link_description: entry.link_description.as_deref(),
+                                link_site_name: entry.link_site_name.as_deref(),
+                                source_app_title: entry.source_app_title.as_deref(),
+                                source_exe_path: entry.source_exe_path.as_deref(),
+                            },
+                        )
+                        .await
+                        {
+                            eprintln!("Failed to write clipboard entry: {err}");
                         } else {
-                            if let Err(err) = insert_clipboard_entry(
-                                &db,
-                                StorageClipboardEntryInput {
-                                    content_type: &entry.content_type,
-                                    content_hash: &entry.content_hash,
-                                    content: &entry.content,
-                                    text_content: entry.text_content.as_deref(),
-                                    ocr_text: entry.ocr_text.as_deref(),
-                                    image_path: entry.image_path.as_deref(),
-                                    file_paths: entry.file_paths.as_deref(),
-                                    link_url: entry.link_url.as_deref(),
-                                    link_title: entry.link_title.as_deref(),
-                                    link_description: entry.link_description.as_deref(),
-                                    link_site_name: entry.link_site_name.as_deref(),
-                                    source_app_title: entry.source_app_title.as_deref(),
-                                    source_exe_path: entry.source_exe_path.as_deref(),
-                                },
-                            )
-                            .await
-                            {
-                                eprintln!("Failed to write clipboard entry: {err}");
-                            } else {
-                                last_hash = Some(entry.content_hash);
-                                let _ = update_tx.send(());
-                            }
+                            last_hash = Some(entry.content_hash);
+                            let _ = update_tx.send(());
                         }
                     }
                 }
