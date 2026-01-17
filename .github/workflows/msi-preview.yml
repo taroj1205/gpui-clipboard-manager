@@ -15,20 +15,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install dist
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.30.3/cargo-dist-installer.sh | sh
 
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-
-      - name: Install cargo-dist
-        run: cargo install cargo-dist --locked
-
-      - name: Build MSI
-        run: dist build --installer msi
+      - id: cargo-dist
+        name: Build MSI
+        shell: bash
+        run: |
+          dist build --installer msi --output-format=json > dist-manifest.json
+          echo "dist ran successfully"
+          echo "paths<<EOF" >> "$GITHUB_OUTPUT"
+          dist print-upload-files-from-manifest --manifest dist-manifest.json >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
         with:
           name: gpui-clipboard-manager-msi
-          path: target/dist/**/*.msi
+          path: ${{ steps.cargo-dist.outputs.paths }}

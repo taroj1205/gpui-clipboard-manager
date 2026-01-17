@@ -61,7 +61,7 @@
     <Product
         Id='*'
         Name='gpui-clipboard-manager'
-        UpgradeCode='1A467AE0-27D0-44AB-9E0E-A5077CAD24B9'
+        UpgradeCode='8770C9A2-0D7F-4462-BA48-31FE3566CC66'
         Manufacturer='Shintaro Jokagi'
         Language='1033'
         Codepage='1252'
@@ -69,6 +69,7 @@
 
         <Package Id='*'
             Keywords='Installer'
+            Description='GPUI-based clipboard manager for Windows'
             Manufacturer='Shintaro Jokagi'
             InstallerVersion='450'
             Languages='1033'
@@ -109,7 +110,7 @@
                     -->
 
                     <Directory Id='Bin' Name='bin'>
-                        <Component Id='Path' Guid='D1342E4F-B92D-4D0E-8DF0-3ED798943E65' KeyPath='yes'>
+                        <Component Id='Path' Guid='0AA35443-BB7A-4545-832A-BEBB96AA89CE' KeyPath='yes'>
                             <Environment
                                 Id='PATH'
                                 Name='PATH'
@@ -147,10 +148,18 @@
               sidecar file to the installer.
             -->
             <!--<ComponentRef Id='License'/>-->
-            
-            <ComponentRef Id='binary0'/>
-        </Feature>
 
+            <ComponentRef Id='binary0'/>
+
+            <Feature
+                Id='Environment'
+                Title='PATH Environment Variable'
+                Description='Add the install location of the [ProductName] executable to the PATH system environment variable. This allows the [ProductName] executable to be called from any location.'
+                Level='1'
+                Absent='allow'>
+                <ComponentRef Id='Path'/>
+            </Feature>
+        </Feature>
 
         <SetProperty Id='ARPINSTALLLOCATION' Value='[APPLICATIONFOLDER]' After='CostFinalize'/>
 
@@ -164,18 +173,8 @@
         <!--<Icon Id='ProductICO' SourceFile='wix\Product.ico'/>-->
         <!--<Property Id='ARPPRODUCTICON' Value='ProductICO' />-->
 
+        <Property Id='ARPHELPLINK' Value='https://github.com/taroj1205/gpui-clipboard-manager'/>
         
-        <!--
-          Adding a URL to Add/Remove Programs control panel listing for the
-          application is a two step process:
-
-          1. Uncomment the following `Property` tag with the "ARPHELPLINK" Id
-             attribute value.
-          2. Change the value for `Value` attribute of the following
-             `Property` tag to a valid URL.
-        -->
-        <!--<Property Id='ARPHELPLINK' Value='ChangeMe'/>-->
-
         <UI>
             <UIRef Id='WixUI_FeatureTree'/>
             
