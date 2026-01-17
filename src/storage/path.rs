@@ -1,10 +1,15 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 fn local_data_dir() -> anyhow::Result<PathBuf> {
     let base = std::env::var_os("LOCALAPPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."));
-    Ok(base.join("gpui-clipboard-manager"))
+    let folder = if cfg!(debug_assertions) {
+        "gpui-clipboard-manager-dev"
+    } else {
+        "gpui-clipboard-manager"
+    };
+    Ok(base.join(folder))
 }
 
 pub fn default_db_path() -> anyhow::Result<PathBuf> {
