@@ -16,6 +16,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use unicode_segmentation::UnicodeSegmentation;
 
+use crate::clipboard::watcher::ignore_next_hash;
 use crate::storage::entity::Model;
 use crate::storage::history::{delete_clipboard_entry, load_entries_page, open_db};
 use crate::storage::path::default_db_path;
@@ -264,6 +265,8 @@ impl PopupView {
     }
 
     fn copy_payload(&mut self, payload: String, cx: &mut Context<Self>) {
+        let hash = hash_payload(&payload);
+        ignore_next_hash(hash);
         cx.write_to_clipboard(ClipboardItem::new_string(payload));
         self.refresh_entries(cx);
     }
@@ -824,6 +827,20 @@ fn history_preview_text(entry: &Model) -> String {
     } else {
         preview_lines.join(" ")
     }
+}
+
+fn hash_payload(payload: &str) -> String {
+    use sha2::{Digest, Sha256};
+
+    let mut hasher = Sha256::new();
+    hasher.update(payload.as_bytes());
+    let digest = hasher.finalize();
+    let mut output = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        use std::fmt::Write;
+        let _ = write!(&mut output, "{:02x}", byte);
+    }
+    output
 }
 
 fn detail_body_list(

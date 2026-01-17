@@ -30,8 +30,16 @@ use crate::storage::images::save_image_bytes;
 #[cfg(target_os = "windows")]
 use crate::storage::path::default_db_path;
 use std::sync::mpsc::Sender;
+use std::sync::{Mutex, OnceLock};
 
-const APP_NAME: &str = "gpui-clipboard-manager";
+static IGNORE_HASH: OnceLock<Mutex<Option<String>>> = OnceLock::new();
+
+pub fn ignore_next_hash(hash: String) {
+    let lock = IGNORE_HASH.get_or_init(|| Mutex::new(None));
+    if let Ok(mut guard) = lock.lock() {
+        *guard = Some(hash);
+    }
+}
 
 pub fn start_clipboard_history(cx: &mut App, update_tx: Sender<()>) {
     #[cfg(not(target_os = "windows"))]
@@ -69,24 +77,15 @@ fn start_windows_clipboard_history(cx: &mut App, update_tx: Sender<()>) -> anyho
             match read_clipboard_entry().await {
                 Ok(Some(entry)) => {
                     if last_hash.as_deref() != Some(entry.content_hash.as_str()) {
-                        let should_store = entry
-                            .source_app_title
-                            .as_deref()
-                            .map(|title| title.trim())
-                            .filter(|title| !title.is_empty())
-                            .map(|title| title != APP_NAME)
-                            .or_else(|| {
-                                entry
-                                    .source_exe_path
-                                    .as_deref()
-                                    .and_then(|path| std::path::Path::new(path).file_name())
-                                    .and_then(|name| name.to_str())
-                                    .map(|name| name.to_lowercase())
-                                    .map(|name| name != format!("{APP_NAME}.exe"))
-                            })
-                            .unwrap_or(true);
+                        let ignore_hash = IGNORE_HASH
+                            .get_or_init(|| Mutex::new(None))
+                            .lock()
+                            .ok()
+                            .and_then(|mut guard| guard.take());
 
-                        if should_store {
+                        if ignore_hash.as_deref() == Some(entry.content_hash.as_str()) {
+                            last_hash = Some(entry.content_hash);
+                        } else {
                             if let Err(err) = insert_clipboard_entry(
                                 &db,
                                 StorageClipboardEntryInput {
@@ -112,8 +111,6 @@ fn start_windows_clipboard_history(cx: &mut App, update_tx: Sender<()>) -> anyho
                                 last_hash = Some(entry.content_hash);
                                 let _ = update_tx.send(());
                             }
-                        } else {
-                            last_hash = Some(entry.content_hash);
                         }
                     }
                 }
