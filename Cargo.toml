@@ -12,7 +12,7 @@ path-guid = "0AA35443-BB7A-4545-832A-BEBB96AA89CE"
 license = false
 eula = false
 
-[workspace.metadata]
+[package.metadata.dist]
 allow-dirty = ["ci", "msi"]
 
 [workspace.metadata.release]

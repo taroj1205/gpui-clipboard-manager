@@ -9,21 +9,7 @@ on:
 jobs:
   build:
     name: Build
-    runs-on: windows-latest
-    if: github.event_name == 'pull_request'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-
-      - name: Build
-        run: cargo build --verbose
+    uses: ./.github/workflows/build.yml
 
   test:
     name: Test
