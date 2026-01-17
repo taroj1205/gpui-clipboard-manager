@@ -31,6 +31,8 @@ use crate::storage::images::save_image_bytes;
 use crate::storage::path::default_db_path;
 use std::sync::mpsc::Sender;
 
+const APP_NAME: &str = "gpui-clipboard-manager";
+
 pub fn start_clipboard_history(cx: &mut App, update_tx: Sender<()>) {
     #[cfg(not(target_os = "windows"))]
     let _ = update_tx;
@@ -67,30 +69,51 @@ fn start_windows_clipboard_history(cx: &mut App, update_tx: Sender<()>) -> anyho
             match read_clipboard_entry().await {
                 Ok(Some(entry)) => {
                     if last_hash.as_deref() != Some(entry.content_hash.as_str()) {
-                        if let Err(err) = insert_clipboard_entry(
-                            &db,
-                            StorageClipboardEntryInput {
-                                content_type: &entry.content_type,
-                                content_hash: &entry.content_hash,
-                                content: &entry.content,
-                                text_content: entry.text_content.as_deref(),
-                                ocr_text: entry.ocr_text.as_deref(),
-                                image_path: entry.image_path.as_deref(),
-                                file_paths: entry.file_paths.as_deref(),
-                                link_url: entry.link_url.as_deref(),
-                                link_title: entry.link_title.as_deref(),
-                                link_description: entry.link_description.as_deref(),
-                                link_site_name: entry.link_site_name.as_deref(),
-                                source_app_title: entry.source_app_title.as_deref(),
-                                source_exe_path: entry.source_exe_path.as_deref(),
-                            },
-                        )
-                        .await
-                        {
-                            eprintln!("Failed to write clipboard entry: {err}");
+                        let should_store = entry
+                            .source_app_title
+                            .as_deref()
+                            .map(|title| title.trim())
+                            .filter(|title| !title.is_empty())
+                            .map(|title| title != APP_NAME)
+                            .or_else(|| {
+                                entry
+                                    .source_exe_path
+                                    .as_deref()
+                                    .and_then(|path| std::path::Path::new(path).file_name())
+                                    .and_then(|name| name.to_str())
+                                    .map(|name| name.to_lowercase())
+                                    .map(|name| name != format!("{APP_NAME}.exe"))
+                            })
+                            .unwrap_or(true);
+
+                        if should_store {
+                            if let Err(err) = insert_clipboard_entry(
+                                &db,
+                                StorageClipboardEntryInput {
+                                    content_type: &entry.content_type,
+                                    content_hash: &entry.content_hash,
+                                    content: &entry.content,
+                                    text_content: entry.text_content.as_deref(),
+                                    ocr_text: entry.ocr_text.as_deref(),
+                                    image_path: entry.image_path.as_deref(),
+                                    file_paths: entry.file_paths.as_deref(),
+                                    link_url: entry.link_url.as_deref(),
+                                    link_title: entry.link_title.as_deref(),
+                                    link_description: entry.link_description.as_deref(),
+                                    link_site_name: entry.link_site_name.as_deref(),
+                                    source_app_title: entry.source_app_title.as_deref(),
+                                    source_exe_path: entry.source_exe_path.as_deref(),
+                                },
+                            )
+                            .await
+                            {
+                                eprintln!("Failed to write clipboard entry: {err}");
+                            } else {
+                                last_hash = Some(entry.content_hash);
+                                let _ = update_tx.send(());
+                            }
                         } else {
                             last_hash = Some(entry.content_hash);
-                            let _ = update_tx.send(());
                         }
                     }
                 }

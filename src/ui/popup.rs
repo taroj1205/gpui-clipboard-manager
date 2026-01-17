@@ -8,7 +8,7 @@ use gpui::{
 use gpui_component::{
     input::{Input, InputState},
     menu::{ContextMenuExt, PopupMenuItem},
-    Icon, IconName, Sizable,
+    Icon, IconName, Sizable, WindowExt,
 };
 use sea_orm::DatabaseConnection;
 use std::path::PathBuf;
@@ -250,17 +250,41 @@ impl PopupView {
     }
 
     fn copy_selected(&mut self, cx: &mut Context<Self>) {
-        let Some(entry) = self.entries.get(self.selected_index) else {
+        let Some(payload) = self.payload_for_index(self.selected_index) else {
             return;
         };
+        self.copy_payload(payload, cx);
+    }
 
-        let payload = entry
+    fn copy_entry_by_id(&mut self, id: i32, cx: &mut Context<Self>) {
+        let Some(payload) = self.payload_for_id(id) else {
+            return;
+        };
+        self.copy_payload(payload, cx);
+    }
+
+    fn copy_payload(&mut self, payload: String, cx: &mut Context<Self>) {
+        cx.write_to_clipboard(ClipboardItem::new_string(payload));
+        self.refresh_entries(cx);
+    }
+
+    fn payload_for_index(&self, index: usize) -> Option<String> {
+        let entry = self.entries.get(index)?;
+        Some(self.payload_for_entry(entry))
+    }
+
+    fn payload_for_id(&self, id: i32) -> Option<String> {
+        let entry = self.entries.iter().find(|entry| entry.id == id)?;
+        Some(self.payload_for_entry(entry))
+    }
+
+    fn payload_for_entry(&self, entry: &Model) -> String {
+        entry
             .text_content
             .as_deref()
             .or(entry.file_paths.as_deref())
-            .unwrap_or(entry.content.as_str());
-        cx.write_to_clipboard(ClipboardItem::new_string(payload.to_string()));
-        self.refresh_entries(cx);
+            .unwrap_or(entry.content.as_str())
+            .to_string()
     }
 
     fn delete_entry(&mut self, id: i32, cx: &mut Context<Self>) {
@@ -671,6 +695,7 @@ fn history_list(
         entries.len(),
         cx.processor(move |view, range, _window, _cx| {
             let mut items = Vec::new();
+            let view_handle = _cx.entity();
             for index in range {
                 let entry: &Model = &view.entries[index];
                 let is_selected = index == view.selected_index;
@@ -696,20 +721,43 @@ fn history_list(
                                 view.hide(window, cx);
                             }
                         }),
-                    )
-                    .context_menu(move |menu, _window, _cx| {
-                        menu.item(PopupMenuItem::new("Delete").on_click({
-                            let view = _cx.entity();
-                            move |_, cx| {
-                                view.update(cx, |view, cx| {
-                                    view.delete_entry(entry_id, cx);
-                                });
-                            }
-                        }))
-                    });
+                    );
                 if !is_selected {
                     item = item.hover(|style| style.bg(rgba(0x31313150)));
                 }
+                let view_handle = view_handle.clone();
+                let item = item.context_menu(move |menu, _window, _cx| {
+                    let view_handle = view_handle.clone();
+                    menu.item(PopupMenuItem::new("Copy").on_click({
+                        let view_handle = view_handle.clone();
+                        move |_, _, cx| {
+                            view_handle.update(cx, |view, cx| {
+                                view.copy_entry_by_id(entry_id, cx);
+                            });
+                        }
+                    }))
+                    .separator()
+                    .item(PopupMenuItem::new("Delete").on_click({
+                        let view_handle = view_handle.clone();
+                        move |_, window, cx| {
+                            let view_handle = view_handle.clone();
+                            window.open_dialog(cx, move |dialog, _, _| {
+                                let view_handle = view_handle.clone();
+                                dialog
+                                    .title("Delete entry")
+                                    .confirm()
+                                    .child("Delete this clipboard entry?")
+                                    .on_ok(move |_, _, cx| {
+                                        view_handle.update(cx, |view, cx| {
+                                            view.delete_entry(entry_id, cx);
+                                        });
+                                        true
+                                    })
+                                    .on_cancel(|_, _, _| true)
+                            });
+                        }
+                    }))
+                });
                 let query = view.search_query.clone();
                 let preview_text = history_preview_text(entry);
                 if entry.content_type == "image" {
@@ -735,11 +783,11 @@ fn history_list(
                                 .child(thumbnail),
                         );
                     } else {
-                        item = item.p_2().h(px(36.)).text_ellipsis();
+                        let item = item.p_2().h(px(36.)).text_ellipsis();
                         items.push(item.child(HighlightedText::new(preview_text, query)));
                     }
                 } else {
-                    item = item.p_2().h(px(36.)).text_ellipsis();
+                    let item = item.p_2().h(px(36.)).text_ellipsis();
                     items.push(item.child(HighlightedText::new(preview_text, query)));
                 }
             }
