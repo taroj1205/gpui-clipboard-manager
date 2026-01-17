@@ -15,3 +15,5 @@ installers = ["powershell", "msi"]
 install-path = "CARGO_HOME"
 # Whether to install an updater program
 install-updater = true
+# Whether dist should create a Github Release or use an existing draft
+create-release = false
