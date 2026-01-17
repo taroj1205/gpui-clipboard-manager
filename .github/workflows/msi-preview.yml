@@ -31,7 +31,7 @@ jobs:
         run: cargo install cargo-wix --locked
 
       - name: Build MSI
-        run: cargo wix --release --no-build --output target/wix
+        run: cargo wix --no-build --output target/wix
 
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
