@@ -2,6 +2,15 @@
 name = "gpui-clipboard-manager"
 version = "0.7.3"
 edition = "2021"
+authors = ["Shintaro Jokagi"]
+description = "GPUI-based clipboard manager for Windows"
+repository = "https://github.com/taroj1205/gpui-clipboard-manager"
+
+[package.metadata.wix]
+upgrade-guid = "8770C9A2-0D7F-4462-BA48-31FE3566CC66"
+path-guid = "0AA35443-BB7A-4545-832A-BEBB96AA89CE"
+license = false
+eula = false
 
 [build-dependencies]
 winres = "0.1"
@@ -25,3 +34,8 @@ sea-orm = { version = "1.1.19", features = ["runtime-async-std-native-tls", "sql
 sea-orm-migration = { version = "1.1.19", features = ["runtime-async-std-native-tls", "sqlx-sqlite"] }
 image = { version = "0.24.9", default-features = false, features = ["bmp", "jpeg", "png", "tiff"] }
 windows = { version = "0.48.0", features = ["Foundation", "Foundation_Collections", "Graphics_Imaging", "Media_Ocr", "Win32_System_WinRT"] }
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

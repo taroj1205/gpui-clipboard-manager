@@ -17,8 +17,9 @@
 - Windows-only clipboard code should be gated with `#[cfg(target_os = "windows")]`.
 
 ## Database
-- DB file is `clipboard_history.db` next to the executable.
-- Image files live in `clipboard_images/` next to the executable.
+- DB file is `clipboard_history.db` under `%LOCALAPPDATA%\gpui-clipboard-manager`.
+- Image files live in `%LOCALAPPDATA%\gpui-clipboard-manager\clipboard_images`.
+
 - Schema lives in `src/migration/` and should be the single source of truth.
 
 ## Dev notes

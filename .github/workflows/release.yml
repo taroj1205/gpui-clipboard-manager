@@ -20,12 +20,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-
       - name: Release please
         id: release
         uses: googleapis/release-please-action@v4
@@ -33,19 +27,28 @@ jobs:
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
 
-      - name: Build release
-        if: steps.release.outputs.release_created == 'true'
-        run: cargo build --release
+  build:
+    name: Build MSI
+    needs: release
+    if: needs.release.outputs.release_created == 'true'
+    uses: ./.github/workflows/build.yml
 
-      - name: Rename binary
-        if: steps.release.outputs.release_created == 'true'
-        run: mv target/release/gpui-clipboard-manager.exe gpui-clipboard-manager-${{ steps.release.outputs.tag_name }}.exe
+  publish:
+    name: Publish release assets
+    runs-on: windows-latest
+    needs: [release, build]
+    if: needs.release.outputs.release_created == 'true'
+    steps:
+      - name: Download MSI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: gpui-clipboard-manager-msi
 
       - name: Upload release asset
-        if: steps.release.outputs.release_created == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.release.outputs.tag_name }}
+          tag_name: ${{ needs.release.outputs.tag_name }}
           draft: false
           files: |
-            gpui-clipboard-manager-${{ steps.release.outputs.tag_name }}.exe
+            gpui-clipboard-manager.exe
+            *.msi
