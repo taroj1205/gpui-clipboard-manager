@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.8.0](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.7.3...gpui-clipboard-manager-v0.8.0) (2026-01-17)
+
+
+### Features
+
+* add Windows MSI installer support ([#19](https://github.com/taroj1205/gpui-clipboard-manager/issues/19)) ([d7788ef](https://github.com/taroj1205/gpui-clipboard-manager/commit/d7788efd749830729972a3bcd77f24b7095482ca))
+* **ci:** add MSI preview workflow ([#24](https://github.com/taroj1205/gpui-clipboard-manager/issues/24)) ([64d2b52](https://github.com/taroj1205/gpui-clipboard-manager/commit/64d2b52c792d4afafd71d3057babf6efbc6c72a2))
+* **gpui-component:** add gpui-component ([#17](https://github.com/taroj1205/gpui-clipboard-manager/issues/17)) ([67c2a47](https://github.com/taroj1205/gpui-clipboard-manager/commit/67c2a47bc8d880301acc6ac736cd80cd5e8d272e))
+
+
+### Bug Fixes
+
+* **ci:** install WiX toolset for cargo wix ([3dda752](https://github.com/taroj1205/gpui-clipboard-manager/commit/3dda75275abeeb2ce505fffb39d02763f180affb))
+* correct WiX template for cargo-wix compatibility ([c0ef46a](https://github.com/taroj1205/gpui-clipboard-manager/commit/c0ef46a161d24743e17cbecbd92a72d1235c6f2e))
+* **release:** temp revert release workflow changes ([e35deab](https://github.com/taroj1205/gpui-clipboard-manager/commit/e35deabeb8ded24da8ee68cc132456d54e4af81d))
+
 ## [0.7.3](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.7.2...gpui-clipboard-manager-v0.7.3) (2026-01-16)
 
 
