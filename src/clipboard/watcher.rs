@@ -30,6 +30,16 @@ use crate::storage::images::save_image_bytes;
 #[cfg(target_os = "windows")]
 use crate::storage::path::default_db_path;
 use std::sync::mpsc::Sender;
+use std::sync::{Mutex, OnceLock};
+
+static IGNORE_HASH: OnceLock<Mutex<Option<String>>> = OnceLock::new();
+
+pub fn ignore_next_hash(hash: String) {
+    let lock = IGNORE_HASH.get_or_init(|| Mutex::new(None));
+    if let Ok(mut guard) = lock.lock() {
+        *guard = Some(hash);
+    }
+}
 
 pub fn start_clipboard_history(cx: &mut App, update_tx: Sender<()>) {
     #[cfg(not(target_os = "windows"))]
@@ -67,7 +77,15 @@ fn start_windows_clipboard_history(cx: &mut App, update_tx: Sender<()>) -> anyho
             match read_clipboard_entry().await {
                 Ok(Some(entry)) => {
                     if last_hash.as_deref() != Some(entry.content_hash.as_str()) {
-                        if let Err(err) = insert_clipboard_entry(
+                        let ignore_hash = IGNORE_HASH
+                            .get_or_init(|| Mutex::new(None))
+                            .lock()
+                            .ok()
+                            .and_then(|mut guard| guard.take());
+
+                        if ignore_hash.as_deref() == Some(entry.content_hash.as_str()) {
+                            last_hash = Some(entry.content_hash);
+                        } else if let Err(err) = insert_clipboard_entry(
                             &db,
                             StorageClipboardEntryInput {
                                 content_type: &entry.content_type,

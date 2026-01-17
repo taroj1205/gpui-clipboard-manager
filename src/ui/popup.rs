@@ -7,7 +7,8 @@ use gpui::{
 };
 use gpui_component::{
     input::{Input, InputState},
-    Icon, IconName, Sizable,
+    menu::{ContextMenuExt, PopupMenuItem},
+    Icon, IconName, Root, Sizable, WindowExt,
 };
 use sea_orm::DatabaseConnection;
 use std::path::PathBuf;
@@ -15,8 +16,9 @@ use std::path::PathBuf;
 use std::time::Duration;
 use unicode_segmentation::UnicodeSegmentation;
 
+use crate::clipboard::watcher::ignore_next_hash;
 use crate::storage::entity::Model;
-use crate::storage::history::{load_entries_page, open_db};
+use crate::storage::history::{delete_clipboard_entry, load_entries_page, open_db};
 use crate::storage::path::default_db_path;
 
 actions!(popup, [TogglePopup, MoveUp, MoveDown, ConfirmSelection]);
@@ -249,17 +251,69 @@ impl PopupView {
     }
 
     fn copy_selected(&mut self, cx: &mut Context<Self>) {
-        let Some(entry) = self.entries.get(self.selected_index) else {
+        let Some(payload) = self.payload_for_index(self.selected_index) else {
             return;
         };
+        self.copy_payload(payload, cx);
+    }
 
-        let payload = entry
+    fn copy_entry_by_id(&mut self, id: i32, cx: &mut Context<Self>) {
+        let Some(payload) = self.payload_for_id(id) else {
+            return;
+        };
+        self.copy_payload(payload, cx);
+    }
+
+    fn copy_payload(&mut self, payload: String, cx: &mut Context<Self>) {
+        let hash = hash_payload(&payload);
+        ignore_next_hash(hash);
+        cx.write_to_clipboard(ClipboardItem::new_string(payload));
+        self.refresh_entries(cx);
+    }
+
+    fn payload_for_index(&self, index: usize) -> Option<String> {
+        let entry = self.entries.get(index)?;
+        Some(self.payload_for_entry(entry))
+    }
+
+    fn payload_for_id(&self, id: i32) -> Option<String> {
+        let entry = self.entries.iter().find(|entry| entry.id == id)?;
+        Some(self.payload_for_entry(entry))
+    }
+
+    fn payload_for_entry(&self, entry: &Model) -> String {
+        entry
             .text_content
             .as_deref()
             .or(entry.file_paths.as_deref())
-            .unwrap_or(entry.content.as_str());
-        cx.write_to_clipboard(ClipboardItem::new_string(payload.to_string()));
-        self.refresh_entries(cx);
+            .unwrap_or(entry.content.as_str())
+            .to_string()
+    }
+
+    fn delete_entry(&mut self, id: i32, content_hash: String, cx: &mut Context<Self>) {
+        let Some(db) = self.db.clone() else {
+            return;
+        };
+
+        ignore_next_hash(content_hash);
+
+        cx.spawn(
+            move |view: gpui::WeakEntity<PopupView>, cx: &mut gpui::AsyncApp| {
+                let mut async_cx = cx.clone();
+                async move {
+                    if let Err(err) = delete_clipboard_entry(&db, id).await {
+                        eprintln!("Failed to delete clipboard entry: {err}");
+                        return;
+                    }
+                    if let Some(handle) = view.upgrade() {
+                        let _ = async_cx.update_entity(&handle, |view: &mut PopupView, cx| {
+                            view.reset_and_load(cx);
+                        });
+                    }
+                }
+            },
+        )
+        .detach();
     }
 
     fn select_index(&mut self, index: usize, cx: &mut Context<Self>) {
@@ -527,8 +581,9 @@ impl Render for PopupView {
                 .on_action(cx.listener(Self::on_toggle_action));
         }
 
-        let root = div()
+        let mut root = div()
             .size_full()
+            .relative()
             .flex()
             .flex_col()
             .gap_1()
@@ -602,6 +657,9 @@ impl Render for PopupView {
             );
 
         self.maybe_load_more(cx);
+        if let Some(dialog_layer) = Root::render_dialog_layer(window, cx) {
+            root = root.child(div().absolute().size_full().child(dialog_layer));
+        }
         root
     }
 }
@@ -646,6 +704,7 @@ fn history_list(
         entries.len(),
         cx.processor(move |view, range, _window, _cx| {
             let mut items = Vec::new();
+            let view_handle = _cx.entity();
             for index in range {
                 let entry: &Model = &view.entries[index];
                 let is_selected = index == view.selected_index;
@@ -655,6 +714,8 @@ fn history_list(
                     rgba(0x00000000)
                 };
                 let text_color = rgb(0xd2d8df);
+                let entry_id = entry.id;
+                let entry_hash = entry.content_hash.clone();
                 let mut item = div()
                     .id(index)
                     .rounded_md()
@@ -674,6 +735,45 @@ fn history_list(
                 if !is_selected {
                     item = item.hover(|style| style.bg(rgba(0x31313150)));
                 }
+                let view_handle = view_handle.clone();
+                let item = item.context_menu(move |menu, window, _cx| {
+                    let view_handle = view_handle.clone();
+                    let delete_listener_handle = view_handle.clone();
+                    let delete_action_handle = view_handle.clone();
+                    menu.item(PopupMenuItem::new("Copy").on_click(window.listener_for(
+                        &view_handle,
+                        move |view, _, _, cx| {
+                            view.copy_entry_by_id(entry_id, cx);
+                        },
+                    )))
+                    .separator()
+                    .item(PopupMenuItem::new("Delete").on_click(window.listener_for(
+                        &delete_listener_handle,
+                        {
+                            let entry_hash = entry_hash.clone();
+                            move |_view, _, window, cx| {
+                                let delete_action_handle = delete_action_handle.clone();
+                                let entry_hash = entry_hash.clone();
+                                window.open_dialog(cx, move |dialog, _, _| {
+                                    let delete_action_handle = delete_action_handle.clone();
+                                    let entry_hash = entry_hash.clone();
+                                    dialog
+                                        .title("Delete entry")
+                                        .confirm()
+                                        .child("Delete this clipboard entry?")
+                                        .on_ok(move |_, _, cx| {
+                                            let entry_hash = entry_hash.clone();
+                                            delete_action_handle.update(cx, |view, cx| {
+                                                view.delete_entry(entry_id, entry_hash, cx);
+                                            });
+                                            true
+                                        })
+                                        .on_cancel(|_, _, _| true)
+                                });
+                            }
+                        },
+                    )))
+                });
                 let query = view.search_query.clone();
                 let preview_text = history_preview_text(entry);
                 if entry.content_type == "image" {
@@ -699,11 +799,11 @@ fn history_list(
                                 .child(thumbnail),
                         );
                     } else {
-                        item = item.p_2().h(px(36.)).text_ellipsis();
+                        let item = item.p_2().h(px(36.)).text_ellipsis();
                         items.push(item.child(HighlightedText::new(preview_text, query)));
                     }
                 } else {
-                    item = item.p_2().h(px(36.)).text_ellipsis();
+                    let item = item.p_2().h(px(36.)).text_ellipsis();
                     items.push(item.child(HighlightedText::new(preview_text, query)));
                 }
             }
@@ -740,6 +840,20 @@ fn history_preview_text(entry: &Model) -> String {
     } else {
         preview_lines.join(" ")
     }
+}
+
+fn hash_payload(payload: &str) -> String {
+    use sha2::{Digest, Sha256};
+
+    let mut hasher = Sha256::new();
+    hasher.update(payload.as_bytes());
+    let digest = hasher.finalize();
+    let mut output = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        use std::fmt::Write;
+        let _ = write!(&mut output, "{:02x}", byte);
+    }
+    output
 }
 
 fn detail_body_list(

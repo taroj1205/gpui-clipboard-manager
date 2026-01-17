@@ -33,10 +33,14 @@ jobs:
           dist print-upload-files-from-manifest --manifest dist-manifest.json >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
+      - name: Move msi to project root
+        shell: bash
+        run: |
+          mv target/distrib/*.msi .
+
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
         with:
           name: gpui-clipboard-manager-msi
           path: |
-              target/release/gpui-clipboard-manager.exe
-              target/distrib/*.msi
+              *.msi
