@@ -116,6 +116,11 @@ pub async fn insert_clipboard_entry(
     Ok(())
 }
 
+pub async fn delete_clipboard_entry(db: &DatabaseConnection, id: i32) -> anyhow::Result<()> {
+    Entity::delete_by_id(id).exec(db).await?;
+    Ok(())
+}
+
 fn sqlite_url(path: &Path) -> String {
     let raw = path.to_string_lossy().replace('\\', "/");
     format!("sqlite:///{raw}?mode=rwc")

@@ -7,6 +7,7 @@ use gpui::{
 };
 use gpui_component::{
     input::{Input, InputState},
+    menu::{ContextMenuExt, PopupMenuItem},
     Icon, IconName, Sizable,
 };
 use sea_orm::DatabaseConnection;
@@ -16,7 +17,7 @@ use std::time::Duration;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::storage::entity::Model;
-use crate::storage::history::{load_entries_page, open_db};
+use crate::storage::history::{delete_clipboard_entry, load_entries_page, open_db};
 use crate::storage::path::default_db_path;
 
 actions!(popup, [TogglePopup, MoveUp, MoveDown, ConfirmSelection]);
@@ -260,6 +261,30 @@ impl PopupView {
             .unwrap_or(entry.content.as_str());
         cx.write_to_clipboard(ClipboardItem::new_string(payload.to_string()));
         self.refresh_entries(cx);
+    }
+
+    fn delete_entry(&mut self, id: i32, cx: &mut Context<Self>) {
+        let Some(db) = self.db.clone() else {
+            return;
+        };
+
+        cx.spawn(
+            move |view: gpui::WeakEntity<PopupView>, cx: &mut gpui::AsyncApp| {
+                let mut async_cx = cx.clone();
+                async move {
+                    if let Err(err) = delete_clipboard_entry(&db, id).await {
+                        eprintln!("Failed to delete clipboard entry: {err}");
+                        return;
+                    }
+                    if let Some(handle) = view.upgrade() {
+                        let _ = async_cx.update_entity(&handle, |view: &mut PopupView, cx| {
+                            view.reset_and_load(cx);
+                        });
+                    }
+                }
+            },
+        )
+        .detach();
     }
 
     fn select_index(&mut self, index: usize, cx: &mut Context<Self>) {
@@ -655,6 +680,7 @@ fn history_list(
                     rgba(0x00000000)
                 };
                 let text_color = rgb(0xd2d8df);
+                let entry_id = entry.id;
                 let mut item = div()
                     .id(index)
                     .rounded_md()
@@ -670,7 +696,17 @@ fn history_list(
                                 view.hide(window, cx);
                             }
                         }),
-                    );
+                    )
+                    .context_menu(move |menu, _window, _cx| {
+                        menu.item(PopupMenuItem::new("Delete").on_click({
+                            let view = _cx.entity();
+                            move |_, cx| {
+                                view.update(cx, |view, cx| {
+                                    view.delete_entry(entry_id, cx);
+                                });
+                            }
+                        }))
+                    });
                 if !is_selected {
                     item = item.hover(|style| style.bg(rgba(0x31313150)));
                 }
