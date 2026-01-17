@@ -131,6 +131,20 @@
                     </Directory>
                 </Directory>
             </Directory>
+            <Directory Id='ProgramMenuFolder'>
+                <Directory Id='ApplicationProgramsFolder' Name='gpui-clipboard-manager'>
+                    <Component Id='StartMenuShortcut' Guid='*'>
+                        <Shortcut
+                            Id='ApplicationStartMenuShortcut'
+                            Name='gpui-clipboard-manager'
+                            Description='GPUI-based clipboard manager'
+                            Target='[Bin]gpui-clipboard-manager.exe'
+                            WorkingDirectory='APPLICATIONFOLDER'/>
+                        <RemoveFolder Id='ApplicationProgramsFolder' On='uninstall'/>
+                        <RegistryValue Root='HKCU' Key='Software\gpui-clipboard-manager' Name='installed' Type='integer' Value='1' KeyPath='yes'/>
+                    </Component>
+                </Directory>
+            </Directory>
         </Directory>
 
         <Feature
@@ -150,7 +164,8 @@
             <!--<ComponentRef Id='License'/>-->
 
             <ComponentRef Id='binary0'/>
-
+            <ComponentRef Id='StartMenuShortcut'/>
+            
             <Feature
                 Id='Environment'
                 Title='PATH Environment Variable'

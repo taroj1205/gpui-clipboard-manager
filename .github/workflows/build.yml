@@ -1,7 +1,6 @@
 name: Build
 
 on:
-  pull_request:
   workflow_dispatch:
   workflow_call:
 
@@ -10,7 +9,7 @@ permissions:
 
 jobs:
   build-msi:
-    name: Build MSI
+    name: MSI
     runs-on: windows-latest
     steps:
       - name: Checkout
