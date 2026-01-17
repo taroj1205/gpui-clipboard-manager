@@ -21,26 +21,14 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Build release
-        run: cargo build --release
-
-      - name: Install WiX
-        run: choco install wixtoolset -y
-
-      - name: Add WiX to PATH
-        run: |
-          "$env:ProgramFiles(x86)\WiX Toolset v3.11\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
-      - name: Install cargo-wix
-        run: cargo install cargo-wix --locked
+      - name: Install cargo-dist
+        run: cargo install cargo-dist --locked
 
       - name: Build MSI
-        run: cargo wix --no-build --output target/wix --nocapture
-        env:
-          WIX: ${{ format('{0}\WiX Toolset v3.11', env['ProgramFiles(x86)']) }}
+        run: cargo dist build --installer msi
 
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
         with:
           name: gpui-clipboard-manager-msi
-          path: target/wix/*.msi
+          path: target/dist/**/*.msi

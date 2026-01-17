@@ -1,0 +1,5 @@
+[workspace]
+members = ["cargo:."]
+
+[dist]
+targets = ["x86_64-pc-windows-msvc"]
