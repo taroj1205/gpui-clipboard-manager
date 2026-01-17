@@ -28,7 +28,7 @@ jobs:
           manifest-file: .release-please-manifest.json
 
   build:
-    name: Build MSI
+    name: Build
     needs: release
     if: needs.release.outputs.release_created == 'true'
     uses: ./.github/workflows/build.yml
