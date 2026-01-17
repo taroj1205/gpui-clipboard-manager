@@ -38,5 +38,11 @@ jobs:
         with:
           name: gpui-clipboard-manager-msi
           path: |
-              ${{ steps.cargo-dist.outputs.paths }}
-              target/release/gpui-clipboard-manager.exe
+              target/distrib/gpui-clipboard-manager-x86_64-pc-windows-msvc-update
+              target/distrib/gpui-clipboard-manager-x86_64-pc-windows-msvc.msi
+              target/distrib/gpui-clipboard-manager-x86_64-pc-windows-msvc.msi.sha256
+              target/distrib/gpui-clipboard-manager-x86_64-pc-windows-msvc.zip
+              target/distrib/gpui-clipboard-manager-x86_64-pc-windows-msvc.zip.sha256
+              target/distrib/sha256.sum
+              target/distrib/source.tar.gz
+              target/distrib/source.tar.gz.sha256
