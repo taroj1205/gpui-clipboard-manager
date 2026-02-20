@@ -955,7 +955,7 @@ fn detail_body_list(
     if let Some(entry) = entries.get(selected_index) {
         if entry.content_type == "image" {
             if let Some(path) = entry.image_path.as_deref() {
-                return detail_image_body_list(path, cx, list_state);
+                return detail_image_body_list(entry, path, query, cx, list_state);
             }
         }
         if entry.content_type == "link" {
@@ -993,18 +993,75 @@ fn detail_body_list(
 }
 
 fn detail_image_body_list(
+    entry: &Model,
     image_path: &str,
+    query: &str,
     cx: &mut Context<PopupView>,
     list_state: ListState,
 ) -> AnyElement {
     let image_path = PathBuf::from(image_path);
+    let ocr_text = entry.ocr_text.clone();
+    let query = query.to_string();
     list(
         list_state,
         cx.processor(move |_view, _index, _window, _cx| {
-            img(image_path.clone())
+            let mut container = div()
                 .w_full()
-                .object_fit(ObjectFit::Contain)
-                .into_any_element()
+                .flex()
+                .flex_col()
+                .gap_2();
+
+            container = container.child(
+                img(image_path.clone())
+                    .w_full()
+                    .object_fit(ObjectFit::Contain),
+            );
+
+            if let Some(ocr) = ocr_text.as_ref() {
+                let trimmed = ocr.trim();
+                if !trimmed.is_empty() {
+                    let lines: Vec<SharedString> = trimmed
+                        .lines()
+                        .map(str::trim)
+                        .filter(|line| !line.is_empty())
+                        .map(|line| line.to_string().into())
+                        .collect();
+
+                    container = container.child(
+                        div()
+                            .w_full()
+                            .mt_2()
+                            .pt_2()
+                            .border_t_1()
+                            .border_color(rgba(0xffffff20))
+                            .flex()
+                            .flex_col()
+                            .gap_1()
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(rgb(0x9aa4af))
+                                    .child("Extracted Text"),
+                            )
+                            .child(
+                                div()
+                                    .w_full()
+                                    .flex()
+                                    .flex_col()
+                                    .gap_1()
+                                    .children(lines.into_iter().map(|line| {
+                                        HighlightedText::new_with_mode(
+                                            line,
+                                            query.clone(),
+                                            HighlightMatchMode::AnyToken,
+                                        )
+                                    })),
+                            ),
+                    );
+                }
+            }
+
+            container.into_any_element()
         }),
     )
     .h_full()
@@ -1173,6 +1230,18 @@ fn detail_info_panel(entries: &[Model], selected_index: usize) -> AnyElement {
             if !url.trim().is_empty() {
                 items.push(("URL".to_string(), url.to_string()));
             }
+        }
+    }
+
+    if entry.content_type == "image" {
+        if let Some(ocr) = entry.ocr_text.as_deref() {
+            if !ocr.trim().is_empty() {
+                items.push(("OCR Text".to_string(), "Available".to_string()));
+            } else {
+                items.push(("OCR Text".to_string(), "None".to_string()));
+            }
+        } else {
+            items.push(("OCR Text".to_string(), "None".to_string()));
         }
     }
 
