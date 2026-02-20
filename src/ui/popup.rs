@@ -54,6 +54,7 @@ pub struct PopupView {
     page_offset: u64,
     page_size: u64,
     load_generation: u64,
+    entries_clear_gen: u64,
 }
 
 impl PopupView {
@@ -92,6 +93,7 @@ impl PopupView {
             page_offset: 0,
             page_size: 100,
             load_generation: 0,
+            entries_clear_gen: 0,
         };
 
         cx.on_next_frame(window, |view, window, cx| {
@@ -169,14 +171,45 @@ impl PopupView {
         window.minimize_window();
         self.is_visible = false;
         cx.notify();
+
+        self.entries_clear_gen = self.entries_clear_gen.wrapping_add(1);
+        let clear_gen = self.entries_clear_gen;
+        cx.spawn(
+            move |view: gpui::WeakEntity<PopupView>, cx: &mut gpui::AsyncApp| {
+                let mut async_cx = cx.clone();
+                async move {
+                    async_cx
+                        .background_executor()
+                        .timer(Duration::from_secs(300))
+                        .await;
+                    if let Some(handle) = view.upgrade() {
+                        let _ = async_cx.update_entity(&handle, |view: &mut PopupView, cx| {
+                            if view.entries_clear_gen == clear_gen && !view.is_visible {
+                                view.entries.clear();
+                                view.page_offset = 0;
+                                view.has_more = true;
+                                view.is_loading = false;
+                                view.selected_index = 0;
+                                cx.notify();
+                            }
+                        });
+                    }
+                }
+            },
+        )
+        .detach();
     }
 
     fn show(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.is_visible {
             return;
         }
+        self.entries_clear_gen = self.entries_clear_gen.wrapping_add(1);
         window.activate_window();
         self.is_visible = true;
+        if self.entries.is_empty() && self.db.is_some() {
+            self.reset_and_load(cx);
+        }
         cx.on_next_frame(window, |view, window, cx| {
             cx.focus_view(&view.search_input, window);
         });
@@ -1234,15 +1267,15 @@ fn detail_info_panel(entries: &[Model], selected_index: usize) -> AnyElement {
     }
 
     if entry.content_type == "image" {
-        if let Some(ocr) = entry.ocr_text.as_deref() {
-            if !ocr.trim().is_empty() {
-                items.push(("OCR Text".to_string(), "Available".to_string()));
-            } else {
-                items.push(("OCR Text".to_string(), "None".to_string()));
-            }
-        } else {
-            items.push(("OCR Text".to_string(), "None".to_string()));
-        }
+        let has_ocr = entry
+            .ocr_text
+            .as_deref()
+            .map(|s| !s.trim().is_empty())
+            .unwrap_or(false);
+        items.push((
+            "OCR Text".to_string(),
+            if has_ocr { "Available" } else { "None" }.to_string(),
+        ));
     }
 
     items.push(("Characters".to_string(), characters.to_string()));
