@@ -54,6 +54,7 @@ pub struct PopupView {
     page_offset: u64,
     page_size: u64,
     load_generation: u64,
+    entries_clear_gen: u64,
 }
 
 impl PopupView {
@@ -92,6 +93,7 @@ impl PopupView {
             page_offset: 0,
             page_size: 100,
             load_generation: 0,
+            entries_clear_gen: 0,
         };
 
         cx.on_next_frame(window, |view, window, cx| {
@@ -169,14 +171,45 @@ impl PopupView {
         window.minimize_window();
         self.is_visible = false;
         cx.notify();
+
+        self.entries_clear_gen = self.entries_clear_gen.wrapping_add(1);
+        let clear_gen = self.entries_clear_gen;
+        cx.spawn(
+            move |view: gpui::WeakEntity<PopupView>, cx: &mut gpui::AsyncApp| {
+                let mut async_cx = cx.clone();
+                async move {
+                    async_cx
+                        .background_executor()
+                        .timer(Duration::from_secs(300))
+                        .await;
+                    if let Some(handle) = view.upgrade() {
+                        let _ = async_cx.update_entity(&handle, |view: &mut PopupView, cx| {
+                            if view.entries_clear_gen == clear_gen && !view.is_visible {
+                                view.entries.clear();
+                                view.page_offset = 0;
+                                view.has_more = true;
+                                view.is_loading = false;
+                                view.selected_index = 0;
+                                cx.notify();
+                            }
+                        });
+                    }
+                }
+            },
+        )
+        .detach();
     }
 
     fn show(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.is_visible {
             return;
         }
+        self.entries_clear_gen = self.entries_clear_gen.wrapping_add(1);
         window.activate_window();
         self.is_visible = true;
+        if self.entries.is_empty() && self.db.is_some() {
+            self.reset_and_load(cx);
+        }
         cx.on_next_frame(window, |view, window, cx| {
             cx.focus_view(&view.search_input, window);
         });
@@ -955,7 +988,7 @@ fn detail_body_list(
     if let Some(entry) = entries.get(selected_index) {
         if entry.content_type == "image" {
             if let Some(path) = entry.image_path.as_deref() {
-                return detail_image_body_list(path, cx, list_state);
+                return detail_image_body_list(entry, path, query, cx, list_state);
             }
         }
         if entry.content_type == "link" {
@@ -993,18 +1026,66 @@ fn detail_body_list(
 }
 
 fn detail_image_body_list(
+    entry: &Model,
     image_path: &str,
+    query: &str,
     cx: &mut Context<PopupView>,
     list_state: ListState,
 ) -> AnyElement {
     let image_path = PathBuf::from(image_path);
+    let ocr_text = entry.ocr_text.clone();
+    let query = query.to_string();
     list(
         list_state,
         cx.processor(move |_view, _index, _window, _cx| {
-            img(image_path.clone())
-                .w_full()
-                .object_fit(ObjectFit::Contain)
-                .into_any_element()
+            let mut container = div().w_full().flex().flex_col().gap_2();
+
+            container = container.child(
+                img(image_path.clone())
+                    .w_full()
+                    .object_fit(ObjectFit::Contain),
+            );
+
+            if let Some(ocr) = ocr_text.as_ref() {
+                let trimmed = ocr.trim();
+                if !trimmed.is_empty() {
+                    let lines: Vec<SharedString> = trimmed
+                        .lines()
+                        .map(str::trim)
+                        .filter(|line| !line.is_empty())
+                        .map(|line| line.to_string().into())
+                        .collect();
+
+                    container = container.child(
+                        div()
+                            .w_full()
+                            .mt_2()
+                            .pt_2()
+                            .border_t_1()
+                            .border_color(rgba(0xffffff20))
+                            .flex()
+                            .flex_col()
+                            .gap_1()
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(rgb(0x9aa4af))
+                                    .child("Extracted Text"),
+                            )
+                            .child(div().w_full().flex().flex_col().gap_1().children(
+                                lines.into_iter().map(|line| {
+                                    HighlightedText::new_with_mode(
+                                        line,
+                                        query.clone(),
+                                        HighlightMatchMode::AnyToken,
+                                    )
+                                }),
+                            )),
+                    );
+                }
+            }
+
+            container.into_any_element()
         }),
     )
     .h_full()
@@ -1174,6 +1255,18 @@ fn detail_info_panel(entries: &[Model], selected_index: usize) -> AnyElement {
                 items.push(("URL".to_string(), url.to_string()));
             }
         }
+    }
+
+    if entry.content_type == "image" {
+        let has_ocr = entry
+            .ocr_text
+            .as_deref()
+            .map(|s| !s.trim().is_empty())
+            .unwrap_or(false);
+        items.push((
+            "OCR Text".to_string(),
+            if has_ocr { "Available" } else { "None" }.to_string(),
+        ));
     }
 
     items.push(("Characters".to_string(), characters.to_string()));
