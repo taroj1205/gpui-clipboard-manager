@@ -1038,11 +1038,7 @@ fn detail_image_body_list(
     list(
         list_state,
         cx.processor(move |_view, _index, _window, _cx| {
-            let mut container = div()
-                .w_full()
-                .flex()
-                .flex_col()
-                .gap_2();
+            let mut container = div().w_full().flex().flex_col().gap_2();
 
             container = container.child(
                 img(image_path.clone())
@@ -1076,20 +1072,15 @@ fn detail_image_body_list(
                                     .text_color(rgb(0x9aa4af))
                                     .child("Extracted Text"),
                             )
-                            .child(
-                                div()
-                                    .w_full()
-                                    .flex()
-                                    .flex_col()
-                                    .gap_1()
-                                    .children(lines.into_iter().map(|line| {
-                                        HighlightedText::new_with_mode(
-                                            line,
-                                            query.clone(),
-                                            HighlightMatchMode::AnyToken,
-                                        )
-                                    })),
-                            ),
+                            .child(div().w_full().flex().flex_col().gap_1().children(
+                                lines.into_iter().map(|line| {
+                                    HighlightedText::new_with_mode(
+                                        line,
+                                        query.clone(),
+                                        HighlightMatchMode::AnyToken,
+                                    )
+                                }),
+                            )),
                     );
                 }
             }
