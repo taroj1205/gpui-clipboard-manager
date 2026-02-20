@@ -1,3 +1,5 @@
+#[cfg(target_os = "windows")]
+use clipboard_win::{formats, raw, Clipboard, Setter};
 use gpui::{
     actions, canvas, div, fill, img, list, point, prelude::*, px, relative, rgb, rgba, size,
     uniform_list, AnyElement, App, Bounds, ClipboardItem, Context, Element, ElementId,
@@ -20,6 +22,8 @@ use crate::clipboard::watcher::ignore_next_hash;
 use crate::storage::entity::Model;
 use crate::storage::history::{delete_clipboard_entry, load_entries_page, open_db};
 use crate::storage::path::default_db_path;
+#[cfg(target_os = "windows")]
+use crate::storage::path::image_path_for_hash;
 
 actions!(popup, [TogglePopup, MoveUp, MoveDown, ConfirmSelection]);
 
@@ -218,7 +222,8 @@ impl PopupView {
             } else {
                 ScrollStrategy::Bottom
             };
-            self.list_scroll.scroll_to_item(self.selected_index, strategy);
+            self.list_scroll
+                .scroll_to_item(self.selected_index, strategy);
             self.detail_list_state.reset(1);
             cx.notify();
         }
@@ -255,34 +260,35 @@ impl PopupView {
     }
 
     fn copy_selected(&mut self, cx: &mut Context<Self>) {
-        let Some(payload) = self.payload_for_index(self.selected_index) else {
+        let Some(entry) = self.entries.get(self.selected_index).cloned() else {
             return;
         };
-        self.copy_payload(payload, cx);
+        self.copy_entry(&entry, cx);
     }
 
     fn copy_entry_by_id(&mut self, id: i32, cx: &mut Context<Self>) {
-        let Some(payload) = self.payload_for_id(id) else {
+        let Some(entry) = self.entries.iter().find(|entry| entry.id == id).cloned() else {
             return;
         };
-        self.copy_payload(payload, cx);
+        self.copy_entry(&entry, cx);
     }
 
-    fn copy_payload(&mut self, payload: String, cx: &mut Context<Self>) {
+    fn copy_entry(&mut self, entry: &Model, cx: &mut Context<Self>) {
+        #[cfg(target_os = "windows")]
+        if entry.content_type == "image" {
+            if let Err(err) = copy_image_to_clipboard(entry) {
+                eprintln!("Failed to copy image to clipboard: {err}");
+            } else {
+                self.refresh_entries(cx);
+                return;
+            }
+        }
+
+        let payload = self.payload_for_entry(entry);
         let hash = hash_payload(&payload);
         ignore_next_hash(hash);
         cx.write_to_clipboard(ClipboardItem::new_string(payload));
         self.refresh_entries(cx);
-    }
-
-    fn payload_for_index(&self, index: usize) -> Option<String> {
-        let entry = self.entries.get(index)?;
-        Some(self.payload_for_entry(entry))
-    }
-
-    fn payload_for_id(&self, id: i32) -> Option<String> {
-        let entry = self.entries.iter().find(|entry| entry.id == id)?;
-        Some(self.payload_for_entry(entry))
     }
 
     fn payload_for_entry(&self, entry: &Model) -> String {
@@ -858,6 +864,85 @@ fn hash_payload(payload: &str) -> String {
         let _ = write!(&mut output, "{:02x}", byte);
     }
     output
+}
+
+fn hash_bytes(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    let digest = hasher.finalize();
+    let mut output = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        use std::fmt::Write;
+        let _ = write!(&mut output, "{:02x}", byte);
+    }
+    output
+}
+
+#[cfg(target_os = "windows")]
+fn copy_image_to_clipboard(entry: &Model) -> anyhow::Result<()> {
+    let bytes = load_bitmap_bytes_for_clipboard(entry)?;
+
+    let hash = hash_bytes(&bytes);
+    ignore_next_hash(hash);
+
+    let _clip = Clipboard::new_attempts(10)
+        .map_err(|err| anyhow::anyhow!("Clipboard open failed: {err}"))?;
+    raw::empty().map_err(|err| anyhow::anyhow!("Clipboard clear failed: {err}"))?;
+    formats::Bitmap
+        .write_clipboard(&bytes)
+        .map_err(|err| anyhow::anyhow!("Clipboard write failed: {err}"))?;
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn load_bitmap_bytes_for_clipboard(entry: &Model) -> anyhow::Result<Vec<u8>> {
+    let mut candidates = Vec::new();
+    if let Some(image_path) = entry.image_path.as_deref() {
+        let trimmed = image_path.trim();
+        if !trimmed.is_empty() {
+            candidates.push(PathBuf::from(trimmed));
+        }
+    }
+    if let Ok(path) = image_path_for_hash(&entry.content_hash) {
+        if !candidates.iter().any(|candidate| candidate == &path) {
+            candidates.push(path);
+        }
+    }
+
+    let mut last_err: Option<anyhow::Error> = None;
+    for path in candidates {
+        let bytes = match std::fs::read(&path) {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                last_err = Some(err.into());
+                continue;
+            }
+        };
+
+        if bytes.len() >= 2 && &bytes[..2] == b"BM" {
+            return Ok(bytes);
+        }
+
+        use image::ImageOutputFormat;
+        let image = match image::load_from_memory(&bytes) {
+            Ok(image) => image,
+            Err(err) => {
+                last_err = Some(err.into());
+                continue;
+            }
+        };
+
+        let mut bmp_cursor = std::io::Cursor::new(Vec::new());
+        if let Err(err) = image.write_to(&mut bmp_cursor, ImageOutputFormat::Bmp) {
+            last_err = Some(err.into());
+            continue;
+        }
+        return Ok(bmp_cursor.into_inner());
+    }
+
+    Err(last_err.unwrap_or_else(|| anyhow::anyhow!("No readable image file for clipboard entry")))
 }
 
 fn detail_body_list(
