@@ -213,8 +213,12 @@ impl PopupView {
         let next = (self.selected_index as isize + delta).clamp(0, len as isize - 1) as usize;
         if next != self.selected_index {
             self.selected_index = next;
-            self.list_scroll
-                .scroll_to_item(self.selected_index, ScrollStrategy::Center);
+            let strategy = if delta < 0 {
+                ScrollStrategy::Top
+            } else {
+                ScrollStrategy::Bottom
+            };
+            self.list_scroll.scroll_to_item(self.selected_index, strategy);
             self.detail_list_state.reset(1);
             cx.notify();
         }
