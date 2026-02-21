@@ -1,3 +1,3 @@
 mod hash;
 
-pub use hash::{hash_bytes, hash_string};
+pub use hash::hash_bytes;

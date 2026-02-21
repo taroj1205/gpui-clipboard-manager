@@ -11,7 +11,3 @@ pub fn hash_bytes(bytes: &[u8]) -> String {
     }
     output
 }
-
-pub fn hash_string(s: &str) -> String {
-    hash_bytes(s.as_bytes())
-}
