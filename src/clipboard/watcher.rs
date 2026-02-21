@@ -2,24 +2,13 @@ use gpui::App;
 use std::time::Duration;
 
 #[cfg(target_os = "windows")]
-use clipboard_win::{formats, Clipboard, Format, Getter};
-#[cfg(target_os = "windows")]
-use sha2::{Digest, Sha256};
-#[cfg(target_os = "windows")]
-use windows_sys::Win32::Foundation::{CloseHandle, HWND};
-#[cfg(target_os = "windows")]
-use windows_sys::Win32::System::Threading::{
-    OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION,
-};
-#[cfg(target_os = "windows")]
-use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
-};
-
-#[cfg(target_os = "windows")]
 use crate::clipboard::link_metadata::{fetch_link_metadata, parse_link_url, LinkMetadata};
 #[cfg(target_os = "windows")]
 use crate::clipboard::ocr::extract_text_from_image;
+#[cfg(target_os = "windows")]
+use crate::clipboard::types::{ClipboardEntry, ClipboardEntryInput};
+#[cfg(target_os = "windows")]
+use crate::clipboard::windows::{active_window_source, summarize_file_paths};
 #[cfg(target_os = "windows")]
 use crate::storage::history::{
     insert_clipboard_entry, load_last_hash, open_db,
@@ -29,6 +18,10 @@ use crate::storage::history::{
 use crate::storage::images::save_image_bytes;
 #[cfg(target_os = "windows")]
 use crate::storage::path::default_db_path;
+#[cfg(target_os = "windows")]
+use crate::utils::hash_bytes;
+#[cfg(target_os = "windows")]
+use clipboard_win::{formats, Clipboard, Format, Getter};
 use std::sync::mpsc::Sender;
 use std::sync::{Mutex, OnceLock};
 
@@ -126,35 +119,6 @@ fn start_windows_clipboard_history(cx: &mut App, update_tx: Sender<()>) -> anyho
     .detach();
 
     Ok(())
-}
-
-#[cfg(target_os = "windows")]
-struct ClipboardEntry {
-    content_type: String,
-    content_hash: String,
-    content: String,
-    text_content: Option<String>,
-    ocr_text: Option<String>,
-    image_path: Option<String>,
-    file_paths: Option<String>,
-    link_url: Option<String>,
-    link_title: Option<String>,
-    link_description: Option<String>,
-    link_site_name: Option<String>,
-    source_app_title: Option<String>,
-    source_exe_path: Option<String>,
-}
-
-#[cfg(target_os = "windows")]
-struct ClipboardEntryInput {
-    content_type: String,
-    content_hash: String,
-    content: String,
-    text_content: Option<String>,
-    ocr_text: Option<String>,
-    image_path: Option<String>,
-    file_paths: Option<String>,
-    link_metadata: Option<LinkMetadata>,
 }
 
 #[cfg(target_os = "windows")]
@@ -265,144 +229,9 @@ async fn read_clipboard_entry() -> anyhow::Result<Option<ClipboardEntry>> {
 
 #[cfg(target_os = "windows")]
 fn build_entry(input: ClipboardEntryInput) -> ClipboardEntry {
-    let ClipboardEntryInput {
-        content_type,
-        content_hash,
-        content,
-        text_content,
-        ocr_text,
-        image_path,
-        file_paths,
-        link_metadata,
-    } = input;
     let (source_app_title, source_exe_path) = active_window_source();
-    let (link_url, link_title, link_description, link_site_name) = match link_metadata {
-        Some(metadata) => (
-            Some(metadata.url),
-            metadata.title,
-            metadata.description,
-            metadata.site_name,
-        ),
-        None => (None, None, None, None),
-    };
-    ClipboardEntry {
-        content_type,
-        content_hash,
-        content,
-        text_content,
-        ocr_text,
-        image_path,
-        file_paths,
-        link_url,
-        link_title,
-        link_description,
-        link_site_name,
-        source_app_title,
-        source_exe_path,
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn active_window_source() -> (Option<String>, Option<String>) {
-    let hwnd = unsafe { GetForegroundWindow() };
-    if hwnd.is_null() {
-        return (None, None);
-    }
-
-    let title = active_window_title(hwnd);
-    let exe_path = active_window_exe_path(hwnd);
-    (title, exe_path)
-}
-
-#[cfg(target_os = "windows")]
-fn active_window_title(hwnd: HWND) -> Option<String> {
-    let len = unsafe { GetWindowTextLengthW(hwnd) };
-    if len <= 0 {
-        return None;
-    }
-
-    let mut buffer = vec![0u16; (len + 1) as usize];
-    let copied = unsafe { GetWindowTextW(hwnd, buffer.as_mut_ptr(), buffer.len() as i32) };
-    if copied <= 0 {
-        return None;
-    }
-
-    buffer.truncate(copied as usize);
-    let title = String::from_utf16_lossy(&buffer);
-    let trimmed = title.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn active_window_exe_path(hwnd: HWND) -> Option<String> {
-    let mut pid: u32 = 0;
-    unsafe {
-        GetWindowThreadProcessId(hwnd, &mut pid);
-    }
-    if pid == 0 {
-        return None;
-    }
-
-    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
-    if handle.is_null() {
-        return None;
-    }
-
-    let mut buffer = vec![0u16; 1024];
-    let mut len = buffer.len() as u32;
-    let result = unsafe { QueryFullProcessImageNameW(handle, 0, buffer.as_mut_ptr(), &mut len) };
-    unsafe {
-        CloseHandle(handle);
-    }
-    if result == 0 || len == 0 {
-        return None;
-    }
-
-    buffer.truncate(len as usize);
-    let path = String::from_utf16_lossy(&buffer);
-    let trimmed = path.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn summarize_file_paths(paths: &[String]) -> String {
-    let mut names: Vec<String> = Vec::with_capacity(paths.len());
-    for path in paths {
-        let name = std::path::Path::new(path)
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or(path);
-        names.push(name.to_string());
-    }
-
-    let summary = names.join(", ");
-    const MAX_LEN: usize = 500;
-    if summary.len() <= MAX_LEN {
-        summary
-    } else {
-        let mut truncated = summary[..MAX_LEN].to_string();
-        truncated.push_str("...");
-        truncated
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn hash_bytes(bytes: &[u8]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    let digest = hasher.finalize();
-    let mut output = String::with_capacity(digest.len() * 2);
-    for byte in digest {
-        use std::fmt::Write;
-        let _ = write!(&mut output, "{:02x}", byte);
-    }
-    output
+    let mut entry = ClipboardEntry::from(input);
+    entry.source_app_title = source_app_title;
+    entry.source_exe_path = source_exe_path;
+    entry
 }
