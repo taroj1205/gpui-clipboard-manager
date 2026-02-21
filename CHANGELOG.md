@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.9.0](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.8.0...gpui-clipboard-manager-v0.9.0) (2026-02-20)
+
+
+### Features
+
+* **img:** allow copying image ([#28](https://github.com/taroj1205/gpui-clipboard-manager/issues/28)) ([5f0b1c4](https://github.com/taroj1205/gpui-clipboard-manager/commit/5f0b1c4ba217f8eb1fc997f265e904ba209f8720))
+* **ui:** add context delete for entries ([#26](https://github.com/taroj1205/gpui-clipboard-manager/issues/26)) ([06d55d6](https://github.com/taroj1205/gpui-clipboard-manager/commit/06d55d64638480c065c0c4ef38c7f49533b8704c))
+
+
+### Bug Fixes
+
+* **release:** update name on the build ([044e0b7](https://github.com/taroj1205/gpui-clipboard-manager/commit/044e0b78e9fa33c4051e85eb0d00e92b40546e9e))
+
 ## [0.8.0](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.7.3...gpui-clipboard-manager-v0.8.0) (2026-01-17)
 
 
