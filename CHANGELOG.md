@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.9.0...gpui-clipboard-manager-v0.10.0) (2026-02-21)
+
+
+### Features
+
+* **organization:** reorganize code and clean up ([#31](https://github.com/taroj1205/gpui-clipboard-manager/issues/31)) ([db475ea](https://github.com/taroj1205/gpui-clipboard-manager/commit/db475ea85426142527f1b344b984ab9629b3a7f2))
+
 ## [0.9.0](https://github.com/taroj1205/gpui-clipboard-manager/compare/gpui-clipboard-manager-v0.8.0...gpui-clipboard-manager-v0.9.0) (2026-02-20)
 
 
