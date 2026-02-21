@@ -5,6 +5,7 @@ mod hotkeys;
 mod migration;
 mod storage;
 mod ui;
+mod utils;
 
 fn main() {
     app::run();

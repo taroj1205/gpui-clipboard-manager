@@ -2,10 +2,10 @@
 use clipboard_win::{formats, raw, Clipboard, Setter};
 use gpui::{
     actions, canvas, div, fill, img, list, point, prelude::*, px, relative, rgb, rgba, size,
-    uniform_list, AnyElement, App, Bounds, ClipboardItem, Context, Element, ElementId,
-    GlobalElementId, KeyBinding, LayoutId, ListAlignment, ListState, MouseButton, MouseDownEvent,
-    MouseMoveEvent, MouseUpEvent, ObjectFit, Pixels, Point, ScrollStrategy, ShapedLine,
-    SharedString, Style, TextRun, UniformListScrollHandle, Window,
+    uniform_list, AnyElement, App, AppContext, Bounds, ClipboardItem, Context, Element, ElementId,
+    GlobalElementId, InteractiveElement, KeyBinding, LayoutId, ListAlignment, ListState,
+    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ObjectFit, Pixels, Point,
+    ScrollStrategy, ShapedLine, SharedString, Style, TextRun, UniformListScrollHandle, Window,
 };
 use gpui_component::{
     input::{Input, InputState},
@@ -14,7 +14,6 @@ use gpui_component::{
 };
 use sea_orm::DatabaseConnection;
 use std::path::PathBuf;
-
 use std::time::Duration;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -24,6 +23,7 @@ use crate::storage::history::{delete_clipboard_entry, load_entries_page, open_db
 use crate::storage::path::default_db_path;
 #[cfg(target_os = "windows")]
 use crate::storage::path::image_path_for_hash;
+use crate::utils::hash_bytes;
 
 actions!(popup, [TogglePopup, MoveUp, MoveDown, ConfirmSelection]);
 
@@ -317,20 +317,11 @@ impl PopupView {
             }
         }
 
-        let payload = self.payload_for_entry(entry);
-        let hash = hash_payload(&payload);
+        let payload = payload_for_entry(entry);
+        let hash = hash_bytes(payload.as_bytes());
         ignore_next_hash(hash);
         cx.write_to_clipboard(ClipboardItem::new_string(payload));
         self.refresh_entries(cx);
-    }
-
-    fn payload_for_entry(&self, entry: &Model) -> String {
-        entry
-            .text_content
-            .as_deref()
-            .or(entry.file_paths.as_deref())
-            .unwrap_or(entry.content.as_str())
-            .to_string()
     }
 
     fn delete_entry(&mut self, id: i32, content_hash: String, cx: &mut Context<Self>) {
@@ -885,34 +876,6 @@ fn history_preview_text(entry: &Model) -> String {
     }
 }
 
-fn hash_payload(payload: &str) -> String {
-    use sha2::{Digest, Sha256};
-
-    let mut hasher = Sha256::new();
-    hasher.update(payload.as_bytes());
-    let digest = hasher.finalize();
-    let mut output = String::with_capacity(digest.len() * 2);
-    for byte in digest {
-        use std::fmt::Write;
-        let _ = write!(&mut output, "{:02x}", byte);
-    }
-    output
-}
-
-fn hash_bytes(bytes: &[u8]) -> String {
-    use sha2::{Digest, Sha256};
-
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    let digest = hasher.finalize();
-    let mut output = String::with_capacity(digest.len() * 2);
-    for byte in digest {
-        use std::fmt::Write;
-        let _ = write!(&mut output, "{:02x}", byte);
-    }
-    output
-}
-
 #[cfg(target_os = "windows")]
 fn copy_image_to_clipboard(entry: &Model) -> anyhow::Result<()> {
     let bytes = load_bitmap_bytes_for_clipboard(entry)?;
@@ -976,6 +939,15 @@ fn load_bitmap_bytes_for_clipboard(entry: &Model) -> anyhow::Result<Vec<u8>> {
     }
 
     Err(last_err.unwrap_or_else(|| anyhow::anyhow!("No readable image file for clipboard entry")))
+}
+
+fn payload_for_entry(entry: &Model) -> String {
+    entry
+        .text_content
+        .as_deref()
+        .or(entry.file_paths.as_deref())
+        .unwrap_or(entry.content.as_str())
+        .to_string()
 }
 
 fn detail_body_list(
